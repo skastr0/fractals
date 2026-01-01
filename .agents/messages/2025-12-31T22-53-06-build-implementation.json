@@ -1,0 +1,104 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented server connection management and project selection UI",
+    "data": {
+      "work_item": "10-connection-server-management.md, 11-connection-project-selection.md",
+      "files_changed": [
+        "context/OpenCodeProvider.tsx",
+        "context/ProjectProvider.tsx",
+        "components/layout/app-shell.tsx",
+        "components/layout/header.tsx",
+        "components/layout/status-bar.tsx"
+      ],
+      "files_added": [
+        "hooks/useServerConnection.ts",
+        "components/connection-status.tsx",
+        "components/project-selector.tsx",
+        "components/project-info.tsx"
+      ],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "not run (no test suite invoked)",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "Auto-detect local OpenCode server on startup",
+          "status": "met"
+        },
+        {
+          "criterion": "Display connection status in UI",
+          "status": "met"
+        },
+        {
+          "criterion": "Handle server not running gracefully",
+          "status": "met"
+        },
+        {
+          "criterion": "Server URL configuration in settings",
+          "status": "met"
+        },
+        {
+          "criterion": "Reconnection logic on disconnect",
+          "status": "met"
+        },
+        {
+          "criterion": "Multiple server support",
+          "status": "met"
+        },
+        {
+          "criterion": "Connection timeout handling",
+          "status": "met"
+        },
+        {
+          "criterion": "Server version compatibility check",
+          "status": "met"
+        },
+        {
+          "criterion": "ProjectSelector dropdown component",
+          "status": "met"
+        },
+        {
+          "criterion": "List recent projects from OpenCode API",
+          "status": "met"
+        },
+        {
+          "criterion": "Show project name/icon if configured",
+          "status": "met"
+        },
+        {
+          "criterion": "Display project path/worktree",
+          "status": "met"
+        },
+        {
+          "criterion": "File picker fallback for new directories",
+          "status": "met"
+        },
+        {
+          "criterion": "Recent projects sorted by last updated",
+          "status": "met"
+        },
+        {
+          "criterion": "Project switch updates all UI state",
+          "status": "met"
+        },
+        {
+          "criterion": "Persist last selected project",
+          "status": "met"
+        }
+      ],
+      "notes": "useServerConnection handles auto-detect, periodic health checks, reconnection, and settings dialog. ProjectProvider now persists selection and sorts projects by updated time; ProjectSelector includes add-project dialog and file picker input.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-12-31T22:53:06",
+    "work_item": "10-connection-server-management.md, 11-connection-project-selection.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json"
+  }
+}

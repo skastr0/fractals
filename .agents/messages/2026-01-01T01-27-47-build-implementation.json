@@ -1,0 +1,71 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented session status indicators and status hook",
+    "data": {
+      "work_item": "09-ui-status-indicators.md",
+      "files_changed": [
+        ".agents/sdlc/reviewing/09-ui-status-indicators.md",
+        "components/ui/index.ts",
+        "components/ui/session-status-badge.tsx",
+        "components/ui/status-dot.tsx",
+        "hooks/useSessionStatus.ts"
+      ],
+      "files_added": [
+        "components/ui/session-status-badge.tsx",
+        "components/ui/status-dot.tsx",
+        "hooks/useSessionStatus.ts"
+      ],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "not run (not requested)",
+        "types": "pass (bun run check)",
+        "lint": "pass (bun run check)"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "SessionStatusBadge component with all status variants",
+          "status": "met"
+        },
+        {
+          "criterion": "StatusDot component for compact indicators",
+          "status": "met"
+        },
+        {
+          "criterion": "Animation for \"busy\" state (pulsing/spinner)",
+          "status": "met"
+        },
+        {
+          "criterion": "Animation for \"retry\" state (with countdown)",
+          "status": "met"
+        },
+        {
+          "criterion": "\"Pending permission\" indicator with action hint",
+          "status": "met"
+        },
+        {
+          "criterion": "Integration points defined for nodes and panes",
+          "status": "met"
+        },
+        {
+          "criterion": "Consistent color coding across all indicators",
+          "status": "met"
+        },
+        {
+          "criterion": "Accessible labels for screen readers",
+          "status": "met"
+        }
+      ],
+      "notes": "Added SessionStatusBadge and StatusDot components with countdown/animation logic, plus useSessionStatus hook and UI exports.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T01:27:47Z",
+    "work_item": "09-ui-status-indicators.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json"
+  }
+}

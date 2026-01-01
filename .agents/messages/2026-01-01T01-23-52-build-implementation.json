@@ -1,0 +1,80 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented layout shell components with viewport height handling",
+    "data": {
+      "work_item": "08-ui-layout-components.md",
+      "files_changed": [
+        "components/layout/app-shell.tsx",
+        "components/layout/command-bar.tsx",
+        "components/layout/header.tsx",
+        "components/layout/status-bar.tsx",
+        "components/layout/index.ts",
+        "context/ViewportHeightProvider.tsx",
+        "context/index.tsx",
+        "components/panes/pane-container.tsx",
+        "app/page.tsx",
+        "components/ui/session-status-badge.tsx",
+        "hooks/useSessionStatus.ts"
+      ],
+      "files_added": [
+        "components/layout/app-shell.tsx",
+        "components/layout/command-bar.tsx",
+        "components/layout/header.tsx",
+        "components/layout/status-bar.tsx",
+        "components/layout/index.ts",
+        "context/ViewportHeightProvider.tsx"
+      ],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "pass",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "AppShell component with graph area and workspace",
+          "status": "met"
+        },
+        {
+          "criterion": "Header with project selector and navigation",
+          "status": "met"
+        },
+        {
+          "criterion": "Responsive layout that adjusts for pane count",
+          "status": "met"
+        },
+        {
+          "criterion": "Graph area opacity changes when workspace is maximized",
+          "status": "met"
+        },
+        {
+          "criterion": "Maximize/minimize workspace toggle",
+          "status": "met"
+        },
+        {
+          "criterion": "Command bar component (similar to Telechy's center/left modes)",
+          "status": "met"
+        },
+        {
+          "criterion": "Status bar at bottom for connection status",
+          "status": "met"
+        },
+        {
+          "criterion": "Viewport height handling (for mobile/desktop)",
+          "status": "met"
+        }
+      ],
+      "notes": "AppShell uses a placeholder graph panel and PaneContainer width override for workspace maximization. Added viewport height provider and wired AppShell into app/page.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T01:23:52Z",
+    "work_item": "08-ui-layout-components.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json"
+  }
+}

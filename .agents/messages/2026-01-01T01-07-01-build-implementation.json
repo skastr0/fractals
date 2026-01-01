@@ -1,0 +1,78 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented pane UI components and container behavior",
+    "data": {
+      "work_item": "07-ui-pane-system.md",
+      "files_changed": [
+        "components/panes/pane.tsx",
+        "components/panes/pane-container.tsx",
+        "components/panes/index.ts",
+        "components/ui/context-menu.tsx"
+      ],
+      "files_added": [
+        "components/panes/pane.tsx",
+        "components/panes/pane-container.tsx",
+        "components/panes/index.ts"
+      ],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "not run",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "Pane component with header, content, close button",
+          "status": "met"
+        },
+        {
+          "criterion": "PanesProvider ported and adapted from Telechy",
+          "status": "met"
+        },
+        {
+          "criterion": "Pane types updated for OpenCode: session, config, project, agent, metadata",
+          "status": "met"
+        },
+        {
+          "criterion": "Singleton pane logic preserved (e.g., only one config pane)",
+          "status": "met"
+        },
+        {
+          "criterion": "Stacking/unstacking functionality working",
+          "status": "met"
+        },
+        {
+          "criterion": "Maximum pane limit enforced (4 panes)",
+          "status": "met"
+        },
+        {
+          "criterion": "Pane width calculation working",
+          "status": "met"
+        },
+        {
+          "criterion": "Q keyboard shortcut to close most recent pane",
+          "status": "met"
+        },
+        {
+          "criterion": "Pane title updates working",
+          "status": "met"
+        },
+        {
+          "criterion": "Smooth open/close animations",
+          "status": "met"
+        }
+      ],
+      "notes": "Added pane rendering with animated close handling, stacking controls, and Q shortcut. Updated context menu trigger typing/ARIA to satisfy check requirements.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T01:07:01Z",
+    "work_item": "07-ui-pane-system.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json"
+  }
+}

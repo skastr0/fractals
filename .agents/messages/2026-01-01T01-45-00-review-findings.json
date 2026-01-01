@@ -1,0 +1,45 @@
+{
+  "from": "review-coordinator",
+  "to": "caller",
+  "phase": "review",
+  "type": "findings",
+  "content": {
+    "summary": "Batch review of 08-ui-layout-components and 09-ui-status-indicators: PASS",
+    "data": {
+      "work_items": ["08-ui-layout-components.md", "09-ui-status-indicators.md"],
+      "overall_status": "pass",
+      "reviews": {
+        "08-ui-layout-components": {
+          "status": "pass",
+          "findings": [],
+          "checks": {
+            "layout_structure": "AppShell with flex column, responsive graph/pane split",
+            "provider_usage": "usePanes, useProject, useOpenCode correctly imported",
+            "accessibility": "All buttons have aria-label, Select has aria-label",
+            "maximize_toggle": "State in AppShell, opacity/width adjusts correctly",
+            "viewport_height": "Uses CSS var --app-height"
+          }
+        },
+        "09-ui-status-indicators": {
+          "status": "pass",
+          "findings": [],
+          "checks": {
+            "variants": "All 4 SessionStatus variants: idle, busy, retry, pending_permission",
+            "animations": "busy: animate-spin, retry: animate-pulse, pending_permission: animate-pulse",
+            "countdown": "useRetryCountdown hook with interval cleanup",
+            "accessibility": "output element with aria-label, StatusDot has role=img",
+            "exports": "Components and types exported from index.ts"
+          }
+        }
+      },
+      "blocking_issues": [],
+      "suggestions": [],
+      "type_diagnostics": "No type errors"
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T01:45:00.000Z",
+    "work_items": ["08-ui-layout-components.md", "09-ui-status-indicators.md"],
+    "parent_packet": "2026-01-01T01-27-47-build-implementation.json"
+  }
+}

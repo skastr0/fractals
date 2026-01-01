@@ -1,0 +1,50 @@
+{
+  "from": "orchestrator-engineer",
+  "to": "all",
+  "phase": "orchestration",
+  "type": "decision",
+  "content": {
+    "summary": "Key architectural insight: SDK is a client to external OpenCode server",
+    "data": {
+      "insight": "The @opencode-ai/sdk is a CLIENT SDK that connects to an existing OpenCode server, NOT a runtime that spins up its own instance",
+      "architecture": {
+        "opencode_server": {
+          "description": "Separate process running the agent orchestration",
+          "start_command": "opencode serve",
+          "default_port": 5577,
+          "provides": ["REST API", "SSE event stream", "Session management", "Agent execution"]
+        },
+        "opencode_sdk": {
+          "package": "@opencode-ai/sdk",
+          "type": "HTTP/SSE client",
+          "provides": ["Typed REST client", "SSE subscription", "TypeScript types"],
+          "usage": "createOpencodeClient({ baseUrl: 'http://localhost:5577' })"
+        },
+        "our_ui": {
+          "role": "Visual frontend connecting to OpenCode server via SDK",
+          "features": [
+            "Session tree visualization",
+            "Real-time SSE updates",
+            "Pane system for details"
+          ]
+        }
+      },
+      "key_endpoints": {
+        "sessions": "/session - CRUD operations",
+        "messages": "/session/{id}/messages - Message history",
+        "prompt": "/session/{id}/prompt - Send messages",
+        "events": "/global/event - SSE stream for real-time updates",
+        "projects": "/project - Project management"
+      },
+      "contrast_with_anthropic_sdk": {
+        "anthropic_agent_sdk": "Runs agents in-process, SDK IS the runtime",
+        "opencode_sdk": "Connects to external server, SDK TALKS TO the runtime"
+      }
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-01-01T11:00:00Z",
+    "importance": "critical",
+    "affects": "all work items"
+  }
+}

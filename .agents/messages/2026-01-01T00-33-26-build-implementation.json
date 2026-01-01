@@ -1,0 +1,64 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented core context providers and provider wiring",
+    "data": {
+      "work_item": "04-foundation-core-providers.md",
+      "files_changed": [
+        "app/layout.tsx",
+        "context/OpenCodeProvider.tsx",
+        "context/ProjectProvider.tsx",
+        "context/SyncProvider.tsx",
+        "context/PanesProvider.tsx",
+        "context/FocusManagerProvider.tsx",
+        "context/index.tsx"
+      ],
+      "files_added": [
+        "context/OpenCodeProvider.tsx",
+        "context/ProjectProvider.tsx",
+        "context/SyncProvider.tsx",
+        "context/PanesProvider.tsx",
+        "context/FocusManagerProvider.tsx",
+        "context/index.tsx"
+      ],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "not_run (no test script)",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "OpenCodeProvider - manages SDK client and server connection",
+          "status": "met"
+        },
+        { "criterion": "ProjectProvider - manages current project selection", "status": "met" },
+        { "criterion": "PanesProvider - port from Telechy for pane management", "status": "met" },
+        {
+          "criterion": "FocusManagerProvider - port from Telechy for keyboard navigation",
+          "status": "met"
+        },
+        {
+          "criterion": "SyncProvider - manages SSE subscription and reactive data cache",
+          "status": "met"
+        },
+        { "criterion": "Provider composition in root layout", "status": "met" },
+        { "criterion": "TypeScript types exported for all contexts", "status": "met" },
+        {
+          "criterion": "Hooks for consuming each context (useOpenCode, useProject, etc.)",
+          "status": "met"
+        }
+      ],
+      "notes": "Legend State React bindings expose useSelector (not use$). SyncProvider maps session.messages payloads into message/part caches and reconnects SSE with backoff.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T00:33:26Z",
+    "work_item": "04-foundation-core-providers.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json"
+  }
+}

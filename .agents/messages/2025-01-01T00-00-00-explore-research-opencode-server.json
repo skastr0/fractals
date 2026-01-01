@@ -1,0 +1,82 @@
+{
+  "from": "explorer",
+  "to": "caller",
+  "phase": "explore",
+  "type": "research",
+  "content": {
+    "summary": "Comprehensive architecture analysis of OpenCode server, API, and data models",
+    "data": {
+      "original_input": "Explore OpenCode server architecture to understand its API and data models",
+      "technology_stack": {
+        "runtime": "Bun",
+        "framework": "Hono (Web framework)",
+        "ai_sdk": "Vercel AI SDK (v5+)",
+        "realtime": "Server-Sent Events (SSE) for streaming",
+        "websocket": "WebSocket for PTY/terminal sessions",
+        "validation": "Zod for schema validation",
+        "openapi": "hono-openapi for auto-generated API docs"
+      },
+      "project_structure": {
+        "main_package": "packages/opencode/",
+        "server_entry": "packages/opencode/src/server/server.ts",
+        "session_module": "packages/opencode/src/session/",
+        "message_module": "packages/opencode/src/session/message-v2.ts",
+        "agent_module": "packages/opencode/src/agent/agent.ts",
+        "tool_registry": "packages/opencode/src/tool/registry.ts",
+        "storage": "packages/opencode/src/storage/storage.ts",
+        "bus_events": "packages/opencode/src/bus/"
+      },
+      "server_architecture": {
+        "entry_point": "Server.listen() in server/server.ts",
+        "default_port": 4096,
+        "cors": "Supports localhost, tauri://, *.opencode.ai, and custom whitelist",
+        "instance_management": "Uses Instance.provide() for per-project context isolation"
+      },
+      "api_endpoints_summary": {
+        "session_crud": "GET/POST/PATCH/DELETE /session[/:sessionID]",
+        "messaging": "POST /session/:sessionID/message (starts agent loop)",
+        "streaming": "GET /event (SSE for real-time updates)",
+        "tools": "GET /experimental/tool (list available tools)",
+        "providers": "GET /provider (list AI providers)",
+        "pty": "WebSocket at GET /pty/:id/connect",
+        "mcp": "GET/POST /mcp (MCP server management)"
+      },
+      "session_model_summary": {
+        "id": "ULID-based with descending sort",
+        "projectID": "Git root commit hash",
+        "parentID": "For forked sessions",
+        "depth": "Nesting level for subagents",
+        "no_tree_branching": true
+      },
+      "message_model_summary": {
+        "discriminator": "role (user | assistant)",
+        "parts_based": true,
+        "part_types": [
+          "text",
+          "reasoning",
+          "tool",
+          "file",
+          "step-start",
+          "step-finish",
+          "patch",
+          "subtask",
+          "compaction"
+        ]
+      },
+      "agent_loop_summary": {
+        "location": "SessionPrompt.loop() in session/prompt.ts",
+        "streaming": "LLM.stream() via Vercel AI SDK",
+        "tool_execution": "Inline with automatic retry"
+      },
+      "storage_summary": {
+        "location": "~/.local/share/opencode/storage/",
+        "format": "JSON files with file-based locking"
+      }
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-01-01T00:00:00Z",
+    "work_item": null,
+    "parent_packet": null
+  }
+}

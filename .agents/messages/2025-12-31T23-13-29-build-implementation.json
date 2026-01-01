@@ -1,0 +1,64 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented ReactFlow session graph with ELK layout and custom session nodes",
+    "data": {
+      "work_item": "14-graph-reactflow-setup.md, 15-graph-session-node.md",
+      "files_changed": [
+        "app/page.tsx",
+        "components/layout/app-shell.tsx",
+        "hooks/useSessionGraph.ts",
+        "types/index.ts",
+        ".agents/sdlc/reviewing/14-graph-reactflow-setup.md",
+        ".agents/sdlc/reviewing/15-graph-session-node.md"
+      ],
+      "files_added": [
+        "components/graph/session-graph.tsx",
+        "components/graph/session-node.tsx",
+        "components/graph/index.ts"
+      ],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "not run (not requested)",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "ReactFlow configured with custom session node",
+          "status": "met"
+        },
+        {
+          "criterion": "ELK layout engine for tree arrangement",
+          "status": "met"
+        },
+        {
+          "criterion": "Session nodes show title, status, and time",
+          "status": "met"
+        },
+        {
+          "criterion": "Subagent visual distinction",
+          "status": "met"
+        },
+        {
+          "criterion": "Node click selects session and opens pane",
+          "status": "met"
+        },
+        {
+          "criterion": "bun run check passes",
+          "status": "met"
+        }
+      ],
+      "notes": "ELK layout runs only when session topology changes; selection and status updates reuse layout. Session pane opens with status badge placeholder.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-12-31T23:13:29",
+    "work_item": "14-graph-reactflow-setup.md, 15-graph-session-node.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json"
+  }
+}

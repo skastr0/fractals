@@ -1,0 +1,24 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "BLOCKED: Session CRUD operations",
+    "data": {
+      "work_item": "13-connection-session-crud.md",
+      "blocker": "TypeScript check fails because components/layout/header.tsx imports missing @/components/project-selector.",
+      "attempted": [
+        "Implemented session service and hooks",
+        "Updated useServerConnection and OpenCodeProvider to satisfy Biome"
+      ],
+      "needs": "Provide the ProjectSelector component or adjust the import in components/layout/header.tsx."
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T01:45:25Z",
+    "work_item": "13-connection-session-crud.md",
+    "parent_packet": null,
+    "blocking": true
+  }
+}

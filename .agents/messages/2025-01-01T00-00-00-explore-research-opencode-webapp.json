@@ -1,0 +1,98 @@
+{
+  "from": "explorer",
+  "to": "caller",
+  "phase": "explore",
+  "type": "research",
+  "content": {
+    "summary": "Research findings for: Understanding OpenCode's web app architecture, UI approach, and limitations for forking/branching",
+    "data": {
+      "original_input": "Explore OpenCode's web app to understand its current UI approach, architecture, and what's missing that Telechy's UI could provide",
+      "codebase_findings": {
+        "location_and_framework": {
+          "main_app": "packages/app/",
+          "framework": "SolidJS (NOT React)",
+          "build_tool": "Vite",
+          "desktop_wrapper": "packages/desktop/ - Tauri app that imports @opencode-ai/app",
+          "ui_library": "packages/ui/ - Shared SolidJS components",
+          "sdk": "packages/sdk/js/ - Auto-generated OpenAPI client"
+        },
+        "key_components": {
+          "session-turn.tsx": "Renders a conversation turn (user message + assistant responses) - 679 lines",
+          "session-message-rail.tsx": "Simple navigation rail with dots/buttons for jumping between messages - 47 lines",
+          "message-nav.tsx": "Navigation buttons with tooltips for message jumping - 69 lines",
+          "message-part.tsx": "Renders individual parts: text, tools, files, reasoning - 29KB",
+          "prompt-input.tsx": "Main input component with attachments and commands - 54KB"
+        },
+        "conversation_display": {
+          "pattern": "Linear, one message at a time",
+          "navigation": "SessionMessageRail shows dots/buttons on the left",
+          "visual_structure": "Flat list, NOT a tree",
+          "current_message_highlighting": "data-active attribute on selected message"
+        },
+        "server_communication": {
+          "sdk_pattern": "REST API client auto-generated from OpenAPI spec",
+          "events": "Server-Sent Events (SSE) for real-time updates via global.event() endpoint",
+          "event_types": [
+            "message.updated",
+            "session.updated",
+            "permission.updated",
+            "session.status",
+            "message.part.updated"
+          ],
+          "streaming": "Parts updated incrementally as they arrive, auto-scroll during work"
+        },
+        "state_management": {
+          "pattern": "SolidJS stores + Context Providers",
+          "global_sync": "Sessions, projects, providers across directories",
+          "directory_sync": "Messages, parts, status per directory/session",
+          "store_updates": "createStore with produce for immutable updates",
+          "lookup": "Binary search for efficient message/part lookup"
+        }
+      },
+      "fork_branching_analysis": {
+        "session_model": {
+          "parentID": "Sessions have optional parentID for fork relationships",
+          "depth": "Nesting depth for subagent sessions",
+          "note": "Fork infrastructure EXISTS but is underutilized in web UI"
+        },
+        "tui_fork_features": {
+          "fork_command": "/fork slash command exists in TUI",
+          "dialog": "DialogForkFromTimeline shows message list to fork from",
+          "api_call": "sdk.client.session.fork({ sessionID, messageID })",
+          "navigation": "session.child.next, session.parent keybinds for navigating tree"
+        },
+        "web_app_limitations": {
+          "no_fork_ui": "Fork button/dialog does not exist in web app",
+          "no_tree_view": "Messages displayed linearly, no branching visualization",
+          "no_branch_navigation": "Can't navigate between sibling branches",
+          "fork_creates_new_session": "Fork creates entirely new session, loses visual continuity"
+        }
+      },
+      "undo_redo_system": {
+        "web_app": "Has undo/redo commands for reverting messages",
+        "implementation": "session.revert({ sessionID, messageID }) - reverts to a message",
+        "limitation": "Linear revert, doesn't show/create branches"
+      },
+      "prior_art": [],
+      "patterns": {
+        "solidjs_reactivity": "Fine-grained reactivity with createMemo, createEffect",
+        "context_providers": "Deeply nested providers for SDK, Sync, Layout, Terminal, etc.",
+        "binary_search": "Used for efficient sorted array lookups in messages/parts",
+        "event_emitters": "Global emitter pattern from solid-primitives/event-bus"
+      },
+      "raw_options": [
+        "Add fork button to web app using existing session.fork API",
+        "Build branching tree visualization component",
+        "Implement side-by-side branch comparison view",
+        "Create visual branch selector replacing linear message rail",
+        "Port TUI's DialogForkFromTimeline to web",
+        "Build persistent branch context/breadcrumb navigation"
+      ]
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-01-01T00:00:00.000Z",
+    "work_item": null,
+    "parent_packet": null
+  }
+}

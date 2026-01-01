@@ -1,0 +1,51 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented dialog, menu, and context menu components",
+    "data": {
+      "work_item": "06-ui-dialog-menu.md",
+      "files_changed": [
+        "components/ui/dialog.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/context-menu.tsx",
+        "components/ui/index.ts",
+        "hooks/useContextMenu.ts"
+      ],
+      "files_added": [
+        "components/ui/dialog.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/context-menu.tsx",
+        "hooks/useContextMenu.ts"
+      ],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "not run",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        { "criterion": "Dialog component with modal overlay", "status": "met" },
+        { "criterion": "Dialog with header, content, footer sections", "status": "met" },
+        { "criterion": "Dialog close on escape and backdrop click", "status": "met" },
+        { "criterion": "Menu component for dropdown menus", "status": "met" },
+        { "criterion": "MenuTrigger for activating menus", "status": "met" },
+        { "criterion": "MenuItem with keyboard navigation", "status": "met" },
+        { "criterion": "MenuSeparator for grouping items", "status": "met" },
+        { "criterion": "ContextMenu for right-click menus", "status": "met" },
+        { "criterion": "Proper focus trapping in dialogs", "status": "met" },
+        { "criterion": "Animation for open/close transitions", "status": "met" }
+      ],
+      "notes": "Dialog uses ModalOverlay with dismissable escape/backdrop handling and focus trap; Menu supports optional popover wrapper and context menu trigger cloning.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T01:07:00Z",
+    "work_item": "06-ui-dialog-menu.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json",
+    "blocking": false
+  }
+}

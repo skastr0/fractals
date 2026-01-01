@@ -1,0 +1,192 @@
+{
+  "from": "review-coordinator",
+  "to": "caller",
+  "phase": "review",
+  "type": "findings",
+  "content": {
+    "summary": "Review of 04-foundation-core-providers: PASS with warnings",
+    "data": {
+      "work_item": "04-foundation-core-providers.md",
+      "overall_status": "pass",
+      "reviews": {
+        "code": {
+          "status": "warn",
+          "findings": [
+            {
+              "severity": "medium",
+              "location": "context/ProjectProvider.tsx:66",
+              "category": "react-patterns",
+              "issue": "Context value object is not memoized",
+              "suggestion": "Wrap the `value` object creation in `useMemo` to prevent unnecessary re-renders",
+              "blocking": false
+            },
+            {
+              "severity": "medium",
+              "location": "context/FocusManagerProvider.tsx:142",
+              "category": "react-patterns",
+              "issue": "Context value object is not memoized",
+              "suggestion": "Wrap the `value` object creation in `useMemo`",
+              "blocking": false
+            },
+            {
+              "severity": "medium",
+              "location": "context/OpenCodeProvider.tsx:40",
+              "category": "error-handling",
+              "issue": "Potential swallowed error if checkServerHealth fails",
+              "suggestion": "Add error state to context or catch block with logging",
+              "blocking": false
+            },
+            {
+              "severity": "medium",
+              "location": "context/ProjectProvider.tsx:32",
+              "category": "error-handling",
+              "issue": "Swallowed errors in refreshProjects async operation",
+              "suggestion": "Add catch block to set error state or log failure",
+              "blocking": false
+            },
+            {
+              "severity": "low",
+              "location": "context/SyncProvider.tsx:68",
+              "category": "legend-state",
+              "issue": "Suboptimal state updates using spread instead of direct key assignment",
+              "suggestion": "Use `state$.data.sessions[id].set(info)` for better performance",
+              "blocking": false
+            }
+          ],
+          "summary": "Well-structured providers. Main issues: missing useMemo for context values and swallowed errors in async flows."
+        },
+        "security": {
+          "status": "pass",
+          "findings": [
+            {
+              "severity": "low",
+              "location": "context/OpenCodeProvider.tsx:36-37",
+              "category": "input-validation",
+              "issue": "URL parameter in connect() used without validation",
+              "suggestion": "Add URL validation for defense-in-depth (low priority for local-only app)",
+              "blocking": false
+            },
+            {
+              "severity": "info",
+              "location": "lib/opencode/client.ts:25",
+              "category": "sensitive-data",
+              "issue": "Default server uses HTTP for localhost - acceptable for local development",
+              "suggestion": "Document this is intentional for localhost",
+              "blocking": false
+            }
+          ],
+          "summary": "No critical or high vulnerabilities. Proper AbortController cleanup, safe DOM access, good error handling. Acceptable security posture for local-only application."
+        },
+        "simplicity": {
+          "status": "warn",
+          "findings": [
+            {
+              "severity": "high",
+              "location": "context/SyncProvider.tsx:65-168",
+              "category": "what-how",
+              "issue": "handleEvent switch (100+ lines) tangles event routing with state mutation",
+              "suggestion": "Extract to pure reducer: applyEvent(state, event) => state",
+              "blocking": false
+            },
+            {
+              "severity": "high",
+              "location": "context/PanesProvider.tsx:43-188",
+              "category": "representation",
+              "issue": "Methods stored inside observable object - unusual anti-pattern",
+              "suggestion": "Separate data observable from action callbacks",
+              "blocking": false
+            },
+            {
+              "severity": "medium",
+              "location": "context/FocusManagerProvider.tsx:119-124",
+              "category": "who-when",
+              "issue": "Hidden timing with setTimeout(10ms) in handleFocusOut",
+              "suggestion": "Document the timing requirement with named constant",
+              "blocking": false
+            },
+            {
+              "severity": "medium",
+              "location": "context/SyncProvider.tsx:187-227",
+              "category": "state-time",
+              "issue": "Mutable refs and reconnection logic interleaved",
+              "suggestion": "Extract to custom useReconnectingStream hook",
+              "blocking": false
+            },
+            {
+              "severity": "info",
+              "location": "context/SyncProvider.tsx:170-176",
+              "category": "local-reasoning",
+              "issue": "Redundant conditional that always calls resetData()",
+              "suggestion": "Simplify to just resetData() or add comment explaining intent",
+              "blocking": false
+            }
+          ],
+          "summary": "Reasonable file-level separation but internal entanglement in SyncProvider and PanesProvider. Business logic not easily extractable for testing. Consider refactoring for testability."
+        },
+        "requirements": {
+          "status": "pass",
+          "findings": [
+            {
+              "severity": "info",
+              "location": "types/index.ts:9",
+              "category": "deviation",
+              "issue": "PaneType includes 'file' not in original specification",
+              "suggestion": "Document if intentional forward-looking addition",
+              "blocking": false
+            },
+            {
+              "severity": "info",
+              "location": "context/FocusManagerProvider.tsx:6",
+              "category": "deviation",
+              "issue": "FocusArea includes 'none' not in original specification",
+              "suggestion": "Reasonable implementation necessity - no action needed",
+              "blocking": false
+            }
+          ],
+          "summary": "All 8 acceptance criteria fully implemented. Provider hierarchy matches specification. Minor type deviations are justified improvements."
+        }
+      },
+      "blocking_issues": [],
+      "suggestions": [
+        {
+          "priority": "medium",
+          "description": "Add useMemo to ProjectProvider and FocusManagerProvider context values"
+        },
+        {
+          "priority": "medium",
+          "description": "Add error state handling to OpenCodeProvider and ProjectProvider"
+        },
+        {
+          "priority": "low",
+          "description": "Extract SyncProvider's handleEvent to pure reducer for testability"
+        },
+        {
+          "priority": "low",
+          "description": "Separate PanesProvider data from actions"
+        }
+      ],
+      "trace_report": {
+        "original_problem": "Establish React context provider hierarchy for global application state",
+        "chosen_option": "Legend State for observable state management with 5 providers",
+        "learning_milestone": "Providers enable state sharing across components and UI coordination",
+        "acceptance_criteria_met": [
+          "✓ OpenCodeProvider - manages SDK client and server connection",
+          "✓ ProjectProvider - manages current project selection",
+          "✓ PanesProvider - port from Telechy for pane management",
+          "✓ FocusManagerProvider - port from Telechy for keyboard navigation",
+          "✓ SyncProvider - manages SSE subscription and reactive data cache",
+          "✓ Provider composition in root layout",
+          "✓ TypeScript types exported for all contexts",
+          "✓ Hooks for consuming each context (useOpenCode, useProject, etc.)"
+        ],
+        "original_intent_preserved": true,
+        "scope_creep": false
+      }
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-12-31T23:59:01Z",
+    "work_item": "04-foundation-core-providers.md",
+    "parent_packet": "2026-01-01T00-33-26-build-implementation.json"
+  }
+}

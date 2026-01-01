@@ -1,0 +1,96 @@
+{
+  "from": "commitment-analyst",
+  "to": "orchestrator-engineer",
+  "phase": "commit",
+  "type": "work-items",
+  "content": {
+    "summary": "Created 28 detailed work items for OpenCode UI integration project across 7 phases",
+    "data": {
+      "project": "opencode-ui-integration",
+      "total_work_items": 28,
+      "estimated_total_effort": "25-30 days",
+      "phases": [
+        {
+          "name": "Phase 1: Project Foundation",
+          "items": [
+            "01-foundation-project-setup",
+            "02-foundation-react-aria-tailwind",
+            "03-foundation-opencode-sdk",
+            "04-foundation-core-providers"
+          ],
+          "estimated_days": 4.5
+        },
+        {
+          "name": "Phase 2: UI Component Library",
+          "items": [
+            "05-ui-primitive-components",
+            "06-ui-dialog-menu",
+            "07-ui-pane-system",
+            "08-ui-layout-components",
+            "09-ui-status-indicators"
+          ],
+          "estimated_days": 5.5
+        },
+        {
+          "name": "Phase 3: OpenCode Connection",
+          "items": [
+            "10-connection-server-management",
+            "11-connection-project-selection",
+            "12-connection-sse-sync",
+            "13-connection-session-crud"
+          ],
+          "estimated_days": 4.5
+        },
+        {
+          "name": "Phase 4: Session Graph",
+          "items": [
+            "14-graph-reactflow-setup",
+            "15-graph-session-node",
+            "16-graph-tree-builder",
+            "17-graph-subagent-visualization"
+          ],
+          "estimated_days": 3.5
+        },
+        {
+          "name": "Phase 5: Session View",
+          "items": [
+            "18-session-message-list",
+            "19-session-part-rendering",
+            "20-session-streaming",
+            "21-session-input",
+            "22-session-fork-controls"
+          ],
+          "estimated_days": 6.5
+        },
+        {
+          "name": "Phase 6: Configuration Panes",
+          "items": ["23-config-json-viewer", "24-config-json-editor", "25-config-metadata-display"],
+          "estimated_days": 3.5
+        },
+        {
+          "name": "Phase 7: Polish & Integration",
+          "items": [
+            "26-polish-error-handling",
+            "27-polish-keyboard-shortcuts",
+            "28-polish-performance"
+          ],
+          "estimated_days": 3.5
+        }
+      ],
+      "key_decisions": {
+        "sessions_as_nodes": "Each OpenCode session becomes a ReactFlow node",
+        "subagent_visualization": "Sessions with depth > 0 shown as children with visual nesting",
+        "react_aria_components": "Complete UI rebuild, no Material UI",
+        "panes_system": "Port from Telechy for multi-pane support",
+        "continue_by_default": "Never auto-fork, always continue session",
+        "stock_opencode": "No modifications to OpenCode server"
+      },
+      "dependencies_chain": "Foundation -> UI Components -> Connection -> Graph -> Session View -> Config -> Polish"
+    }
+  },
+  "metadata": {
+    "timestamp": "2024-12-31T14:22:00Z",
+    "work_item": "opencode-ui-integration.md",
+    "parent_packet": null
+  }
+}

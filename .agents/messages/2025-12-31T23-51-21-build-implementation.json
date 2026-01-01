@@ -1,0 +1,64 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented OpenCode SDK client wrapper and health check",
+    "data": {
+      "work_item": "03-foundation-opencode-sdk.md",
+      "files_changed": [".agents/sdlc/building/03-foundation-opencode-sdk.md"],
+      "files_added": [
+        "lib/opencode/client.ts",
+        "lib/opencode/errors.ts",
+        "lib/opencode/health.ts",
+        "lib/opencode/index.ts",
+        "tests/opencode-health.test.ts",
+        "types/bun-test.d.ts"
+      ],
+      "tests_added": ["tests/opencode-health.test.ts"],
+      "validation_results": {
+        "tests": "pass",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "@opencode-ai/sdk package installed from npm",
+          "status": "met"
+        },
+        {
+          "criterion": "SDK client wrapper created with proper TypeScript types",
+          "status": "met"
+        },
+        {
+          "criterion": "Server URL configuration (default localhost:5577)",
+          "status": "met"
+        },
+        {
+          "criterion": "Connection health check implemented",
+          "status": "met"
+        },
+        {
+          "criterion": "SDK types exported for use across the app",
+          "status": "met"
+        },
+        {
+          "criterion": "Error types wrapped with application-specific errors",
+          "status": "met"
+        },
+        {
+          "criterion": "Basic test verifying SDK connectivity",
+          "status": "met"
+        }
+      ],
+      "notes": "Used @opencode-ai/sdk/v2/client exports and defaulted to throwOnError for easier error handling. Added bun:test module typing for TS checks.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-12-31T23:51:21Z",
+    "work_item": "03-foundation-opencode-sdk.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json"
+  }
+}

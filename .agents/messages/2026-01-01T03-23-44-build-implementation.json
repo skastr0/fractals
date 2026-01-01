@@ -1,0 +1,89 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented session view components (message list, part rendering, streaming, input, fork controls).",
+    "data": {
+      "work_item": "18-session-message-list.md",
+      "work_items": [
+        "18-session-message-list.md",
+        "19-session-part-rendering.md",
+        "20-session-streaming.md",
+        "21-session-input.md",
+        "22-session-fork-controls.md"
+      ],
+      "files_changed": [
+        "app/globals.css",
+        "components/graph/session-graph.tsx",
+        "components/panes/index.ts",
+        "components/panes/session-pane.tsx",
+        "components/session/message-list.tsx",
+        "components/session/message-turn.tsx",
+        "components/session/part-renderer.tsx",
+        "components/session/scroll-to-bottom.tsx",
+        "components/session/session-input.tsx",
+        "components/session/fork-controls.tsx",
+        "components/session/typewriter-effect.tsx",
+        "components/session/index.ts",
+        "components/session/parts/agent-part.tsx",
+        "components/session/parts/file-part.tsx",
+        "components/session/parts/patch-part.tsx",
+        "components/session/parts/reasoning-part.tsx",
+        "components/session/parts/step-part.tsx",
+        "components/session/parts/text-part.tsx",
+        "components/session/parts/tool-part.tsx",
+        "components/session/parts/tool-status.tsx",
+        "components/ui/index.ts",
+        "components/ui/markdown.tsx",
+        ".agents/sdlc/reviewing/18-session-message-list.md",
+        ".agents/sdlc/reviewing/19-session-part-rendering.md",
+        ".agents/sdlc/reviewing/20-session-streaming.md",
+        ".agents/sdlc/reviewing/21-session-input.md",
+        ".agents/sdlc/reviewing/22-session-fork-controls.md"
+      ],
+      "files_added": [],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "not run",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "Message list renders user/assistant turns with navigation and scroll affordances",
+          "status": "met"
+        },
+        {
+          "criterion": "Part rendering for text/tool/reasoning/patch/agent/file/step types",
+          "status": "met"
+        },
+        {
+          "criterion": "Streaming text with typewriter cursor and smooth auto-scroll",
+          "status": "met"
+        },
+        {
+          "criterion": "Session input supports multi-line send, attachments, and abort",
+          "status": "met"
+        },
+        {
+          "criterion": "Fork controls support fork, undo, and fork count display",
+          "status": "met"
+        },
+        {
+          "criterion": "bun run check passes",
+          "status": "met"
+        }
+      ],
+      "notes": "SessionPane is now used in the graph pane; fork navigation uses dynamic import to avoid module cycles.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T03:23:44Z",
+    "work_item": "18-session-message-list.md",
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json",
+    "blocking": false
+  }
+}

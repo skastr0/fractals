@@ -1,0 +1,188 @@
+{
+  "from": "review-coordinator",
+  "to": "caller",
+  "phase": "review",
+  "type": "findings",
+  "content": {
+    "summary": "Review of work items 16+17 (Tree Builder & Subagent Visualization): PASS",
+    "data": {
+      "work_items": ["16-graph-tree-builder.md", "17-graph-subagent-visualization.md"],
+      "overall_status": "pass",
+      "reviews": {
+        "code": {
+          "status": "pass",
+          "findings": [
+            {
+              "severity": "medium",
+              "location": "hooks/useSessionGraph.ts:230",
+              "category": "maintainability",
+              "issue": "Missing error handling for async ELK layout",
+              "suggestion": "Wrap await elk.layout(...) in try/catch",
+              "blocking": false
+            },
+            {
+              "severity": "low",
+              "location": "lib/graph/tree-builder.ts:131",
+              "category": "pattern",
+              "issue": "Mutation of cached node objects for reuse optimization",
+              "suggestion": "Document the pattern or use immutable approach",
+              "blocking": false
+            }
+          ],
+          "summary": "Solid implementation following project conventions. Tree logic correctly handles parent-child relationships, circular references, depth calculation. Recommend adding error handling for async layout."
+        },
+        "security": {
+          "status": "pass",
+          "findings": [
+            {
+              "severity": "low",
+              "location": "components/graph/session-node.tsx:74-75",
+              "category": "xss",
+              "issue": "Session title from server rendered - but React JSX escaping provides protection",
+              "blocking": false
+            }
+          ],
+          "summary": "All files pass security review. React JSX auto-escapes content, Map/Set used for dynamic keys, status validated against whitelist, circular references detected. Appropriate security for local dev tool."
+        },
+        "simplicity": {
+          "status": "warn",
+          "findings": [
+            {
+              "severity": "high",
+              "location": "hooks/useSessionGraph.ts (entire)",
+              "category": "what/how + state/time braid",
+              "issue": "Monolithic hook with 8+ responsibilities, 10+ useMemo calls, 346 lines",
+              "suggestion": "Extract into smaller hooks: useTreeBuilder, useElkLayout, useCollapsibleTree, useNodeEnrichment",
+              "blocking": false
+            },
+            {
+              "severity": "high",
+              "location": "hooks/useSessionGraph.ts:178",
+              "category": "state/time braid",
+              "issue": "Mutable ref updated inside useMemo violates React purity expectations",
+              "suggestion": "Move mutation to useEffect or return from useMemo and store in useState",
+              "blocking": false
+            },
+            {
+              "severity": "medium",
+              "location": "lib/graph/tree-builder.ts:88-167",
+              "category": "what/how braid",
+              "issue": "buildSessionTree does 5 things in 80 lines",
+              "suggestion": "Extract helper functions for each phase",
+              "blocking": false
+            }
+          ],
+          "positive_highlights": [
+            "tree-builder.ts functions are pure, no side effects, testable",
+            "session-node.tsx is clean, accessible, properly memoized",
+            "Excellent circular reference detection with callback",
+            "Async layout effect handles cancellation correctly"
+          ],
+          "summary": "Good fundamentals but useSessionGraph.ts is a complexity magnet. No blocking issues - code works correctly - but maintainability debt accumulating. Recommend future refactor to extract smaller hooks."
+        },
+        "requirements": {
+          "status": "pass",
+          "trace": {
+            "work_item_16": [
+              {
+                "criterion": "Build parent-child edges from parentID",
+                "implemented": true,
+                "location": "tree-builder.ts:95-104, 204-211"
+              },
+              {
+                "criterion": "Handle missing parents gracefully",
+                "implemented": true,
+                "location": "tree-builder.ts:96-97, 155-161"
+              },
+              {
+                "criterion": "Sort siblings by creation time",
+                "implemented": true,
+                "location": "tree-builder.ts:106-108"
+              },
+              {
+                "criterion": "Support filtering by depth range",
+                "implemented": true,
+                "location": "tree-builder.ts:44-86"
+              },
+              {
+                "criterion": "Handle circular reference detection",
+                "implemented": true,
+                "location": "tree-builder.ts:113-117"
+              },
+              {
+                "criterion": "Efficient incremental updates",
+                "implemented": true,
+                "location": "tree-builder.ts:128-129, useSessionGraph.ts:169-180"
+              },
+              {
+                "criterion": "Calculate tree statistics",
+                "implemented": true,
+                "location": "tree-builder.ts:225-253"
+              }
+            ],
+            "work_item_17": [
+              {
+                "criterion": "Subagent nodes visually distinct",
+                "implemented": true,
+                "location": "session-node.tsx:29-31, 66-69"
+              },
+              {
+                "criterion": "Depth indication (color gradient)",
+                "implemented": true,
+                "location": "depth-styles.ts:1-11"
+              },
+              {
+                "criterion": "Collapsible subagent groups",
+                "implemented": true,
+                "location": "useSessionGraph.ts:65-80, 154-167"
+              },
+              {
+                "criterion": "Subagent count badge",
+                "implemented": true,
+                "location": "session-node.tsx:90-105"
+              },
+              {
+                "criterion": "Visual grouping with background",
+                "implemented": true,
+                "location": "subagent-group.tsx:11-20"
+              },
+              {
+                "criterion": "Animated expansion/collapse",
+                "implemented": true,
+                "location": "tree-builder.ts:187 (CSS transitions)"
+              },
+              {
+                "criterion": "Highlight chain on selection",
+                "implemented": true,
+                "location": "useSessionGraph.ts:186-200, 319-333"
+              }
+            ]
+          },
+          "summary": "All 14 acceptance criteria fully implemented and traceable. No scope creep detected."
+        }
+      },
+      "blocking_issues": [],
+      "suggestions": [
+        "Add try/catch around ELK layout async call",
+        "Future refactor: split useSessionGraph into smaller hooks",
+        "Document node reuse mutation pattern"
+      ],
+      "trace_report": {
+        "original_problem": "Build tree visualization for OpenCode sessions with parent-child hierarchies",
+        "acceptance_criteria_met": "14/14 (100%)",
+        "original_intent_preserved": true,
+        "scope_creep": false,
+        "implementation_notes": [
+          "CSS transitions used instead of Framer Motion (simpler approach)",
+          "ELK layout engine used instead of Dagre (upgraded choice)"
+        ]
+      }
+    }
+  },
+  "metadata": {
+    "timestamp": "2026-01-01T02:15:00Z",
+    "work_items": ["16-graph-tree-builder.md", "17-graph-subagent-visualization.md"],
+    "parent_packet": null,
+    "blocking": false
+  }
+}

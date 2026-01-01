@@ -1,26 +1,124 @@
 @import "tailwindcss";
 
+/* OpenCode Tree UI - Dark theme by default */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Background layers */
+  --background: 222 47% 6%;
+  --background-stronger: 222 47% 8%;
+  --background-base: 222 47% 11%;
+
+  /* Foreground */
+  --foreground: 210 40% 98%;
+
+  /* Primary - blue accent */
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 47% 6%;
+
+  /* Secondary */
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+
+  /* Muted */
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+
+  /* Accent */
+  --accent: 217 33% 17%;
+  --accent-foreground: 210 40% 98%;
+
+  /* Border */
+  --border: 217 33% 17%;
+  --border-weak: 217 33% 12%;
+
+  /* Status colors */
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+  --error: 0 84% 60%;
+  --info: 217 91% 60%;
+
+  /* Session status */
+  --status-idle: 217 33% 50%;
+  --status-busy: 142 71% 45%;
+  --status-pending: 38 92% 50%;
+  --status-error: 0 84% 60%;
+
+  /* Misc */
+  --radius: 0.5rem;
+  --ring: 217 91% 60%;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: hsl(var(--background));
+  --color-background-stronger: hsl(var(--background-stronger));
+  --color-background-base: hsl(var(--background-base));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-border: hsl(var(--border));
+  --color-border-weak: hsl(var(--border-weak));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-error: hsl(var(--error));
+  --color-info: hsl(var(--info));
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: hsl(var(--border));
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+}
+
+/* Focus ring for accessibility */
+.focus-ring {
+  @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* ReactFlow overrides */
+.react-flow__node {
+  cursor: pointer;
+}
+
+.react-flow__edge-path {
+  stroke: hsl(var(--border));
+}
+
+.react-flow__background {
+  background: hsl(var(--background));
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }

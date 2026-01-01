@@ -1,0 +1,63 @@
+{
+  "from": "explorer",
+  "to": "caller",
+  "phase": "explore",
+  "type": "options",
+  "content": {
+    "summary": "Options ranked by time-to-learning for Telechy UI improvements over OpenCode's web app",
+    "data": {
+      "problem": "OpenCode's web app lacks visual branching/forking capabilities. Fork functionality exists in backend and TUI but web app displays conversations linearly. Users can't visualize conversation trees, navigate between branches, or fork from the web interface.",
+      "constraints": [
+        "OpenCode backend already supports forking (session.fork API exists)",
+        "Sessions have parentID field for tree relationships",
+        "Web app is SolidJS (Telechy is React - no direct port)",
+        "Current navigation is linear (prev/next message)",
+        "Fork creates NEW session, not inline branch"
+      ],
+      "options": [
+        {
+          "name": "Linear-first with Fork Button",
+          "approach": "Add simple fork button to Telechy's existing linear UI. When clicked, fork creates new session and shows toast with link. Keep familiar linear flow, add escape hatch.",
+          "time_to_learning": "1-2 days",
+          "what_we_learn": "Whether users actually need visual branching or just want fork capability. Test simplest implementation first.",
+          "risk_if_wrong": "Low - minimal code, easy to extend later",
+          "reversibility": "high",
+          "rank": 1
+        },
+        {
+          "name": "Session Tabs with Fork",
+          "approach": "Add tab bar showing related sessions (parent + children). Fork creates new tab. Like browser tabs - flat but shows relationships. Use session.parentID to group.",
+          "time_to_learning": "3-4 days",
+          "what_we_learn": "Whether tab metaphor works for conversation branches. Familiar UI pattern, low cognitive load.",
+          "risk_if_wrong": "Medium - more UI work but uses proven pattern",
+          "reversibility": "high",
+          "rank": 2
+        },
+        {
+          "name": "Branching Timeline Component",
+          "approach": "Replace linear message rail with visual tree showing branch points. Click to navigate. Like git branch visualization but for conversations.",
+          "time_to_learning": "1-2 weeks",
+          "what_we_learn": "Full branching UX - does visual tree help or confuse? Can we make it intuitive?",
+          "risk_if_wrong": "High - significant investment, may not match mental models",
+          "reversibility": "medium",
+          "rank": 3
+        },
+        {
+          "name": "Side-by-Side Branch Comparison",
+          "approach": "After forking, show two panels with original and forked branch. Diff-style comparison of conversation paths.",
+          "time_to_learning": "1-2 weeks",
+          "what_we_learn": "Whether comparison view is valuable. Heavy UI investment.",
+          "risk_if_wrong": "High - complex UX, may be overkill for most use cases",
+          "reversibility": "medium",
+          "rank": 4
+        }
+      ],
+      "recommendation": "Option 1 (Linear-first with Fork Button) because it validates the core hypothesis (do users want forking?) with minimal investment. OpenCode already has the fork API - we just need a button. If users actually use fork, Option 2 (Session Tabs) is the natural next step. The visual tree (Option 3) is a larger bet that should wait until we confirm forking is valuable."
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-01-01T00:00:01.000Z",
+    "work_item": null,
+    "parent_packet": "2025-01-01T00-00-00-explore-research-opencode-webapp.json"
+  }
+}

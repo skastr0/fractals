@@ -1,0 +1,91 @@
+{
+  "from": "builder",
+  "to": "caller",
+  "phase": "build",
+  "type": "implementation",
+  "content": {
+    "summary": "Implemented tree builder utilities and subagent visualization enhancements.",
+    "data": {
+      "work_items": ["16-graph-tree-builder.md", "17-graph-subagent-visualization.md"],
+      "files_changed": [
+        "components/graph/session-graph.tsx",
+        "components/graph/session-node.tsx",
+        "hooks/useSessionGraph.ts",
+        "types/index.ts"
+      ],
+      "files_added": [
+        "components/graph/subagent-group.tsx",
+        "lib/graph/depth-styles.ts",
+        "lib/graph/tree-builder.ts"
+      ],
+      "tests_added": [],
+      "validation_results": {
+        "tests": "not run",
+        "types": "pass",
+        "lint": "pass"
+      },
+      "acceptance_criteria_status": [
+        {
+          "criterion": "Build parent-child edges from parentID",
+          "status": "met"
+        },
+        {
+          "criterion": "Handle missing parents gracefully",
+          "status": "met"
+        },
+        {
+          "criterion": "Sort siblings by creation time",
+          "status": "met"
+        },
+        {
+          "criterion": "Support filtering by depth range",
+          "status": "met"
+        },
+        {
+          "criterion": "Handle circular reference detection",
+          "status": "met"
+        },
+        {
+          "criterion": "Efficient incremental updates on new sessions",
+          "status": "met"
+        },
+        {
+          "criterion": "Calculate tree statistics (max depth, node count per level)",
+          "status": "met"
+        },
+        {
+          "criterion": "Subagent nodes visually distinct from root sessions",
+          "status": "met"
+        },
+        {
+          "criterion": "Depth indication and subagent grouping visuals",
+          "status": "met"
+        },
+        {
+          "criterion": "Collapsible subagent groups",
+          "status": "met"
+        },
+        {
+          "criterion": "Subagent count badge on parent nodes",
+          "status": "met"
+        },
+        {
+          "criterion": "Animated expansion/collapse",
+          "status": "met"
+        },
+        {
+          "criterion": "Highlight subagent chain on selection",
+          "status": "met"
+        }
+      ],
+      "notes": "Tree builder utilities now handle cycles, depth filtering, and incremental reuse. Session graph renders group background nodes, collapse toggles, and chain highlighting.",
+      "blockers": []
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-12-31T23-59-59",
+    "work_item": null,
+    "parent_packet": "2024-12-31T14-22-00-commit-work-items.json",
+    "blocking": false
+  }
+}

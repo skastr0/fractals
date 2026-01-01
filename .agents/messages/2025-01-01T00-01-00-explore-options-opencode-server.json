@@ -1,0 +1,48 @@
+{
+  "from": "explorer",
+  "to": "caller",
+  "phase": "explore",
+  "type": "options",
+  "content": {
+    "summary": "Options for integrating with OpenCode server architecture",
+    "data": {
+      "problem": "Understanding OpenCode server architecture for potential integration or inspiration",
+      "constraints": ["Read-only exploration", "No code changes required"],
+      "options": [
+        {
+          "name": "Direct SDK Integration",
+          "approach": "Use @opencode-ai/sdk package to programmatically interact with OpenCode server",
+          "time_to_learning": "2-4 hours",
+          "what_we_learn": "How to spawn server, create sessions, send messages, receive streaming responses",
+          "risk_if_wrong": "Low - SDK is well-documented with TypeScript types",
+          "reversibility": "high",
+          "rank": 1
+        },
+        {
+          "name": "REST API Direct Integration",
+          "approach": "Call OpenCode REST endpoints directly using fetch/axios",
+          "time_to_learning": "4-6 hours",
+          "what_we_learn": "Full API contract, SSE event handling, authentication flow",
+          "risk_if_wrong": "Medium - need to handle SSE streaming manually",
+          "reversibility": "high",
+          "rank": 2
+        },
+        {
+          "name": "Architecture Pattern Adoption",
+          "approach": "Apply OpenCode's patterns (Session/Message/Part model, Bus events, Tool registry) to Telechy",
+          "time_to_learning": "1-2 days",
+          "what_we_learn": "Best practices for AI session management, streaming, tool execution",
+          "risk_if_wrong": "Medium - requires significant refactoring",
+          "reversibility": "medium",
+          "rank": 3
+        }
+      ],
+      "recommendation": "Option 1 (Direct SDK Integration) for fastest learning. The SDK provides typed client with automatic OpenAPI generation, handles SSE streaming, and the createOpencodeClient() function is straightforward to use."
+    }
+  },
+  "metadata": {
+    "timestamp": "2025-01-01T00:01:00Z",
+    "work_item": null,
+    "parent_packet": "2025-01-01T00-00-00-explore-research-opencode-server.json"
+  }
+}
