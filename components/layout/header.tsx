@@ -3,6 +3,7 @@
 import { Maximize2, Minimize2, Plus, Settings } from 'lucide-react'
 
 import { ProjectSelector } from '@/components/project-selector'
+import { TimeFilterBar } from '@/components/time-filter-bar'
 import { Button } from '@/components/ui/button'
 import { usePanes } from '@/context/PanesProvider'
 import type { PaneType } from '@/types'
@@ -38,10 +39,11 @@ export function Header({
   const workspaceLabel = isWorkspaceMaximized ? 'Restore workspace' : 'Maximize workspace'
 
   return (
-    <header className="h-14 border-b border-border bg-background/95 backdrop-blur-sm">
-      <div className="flex h-full items-center justify-between gap-4 px-4">
-        <div className="flex min-w-0 items-center gap-4">
+    <header className="relative z-10 flex-shrink-0 border-b border-border bg-background/95 backdrop-blur-sm">
+      <div className="flex h-14 items-center justify-between gap-4 px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
           <ProjectSelector />
+          <TimeFilterBar />
         </div>
 
         <div className="flex items-center gap-2">
