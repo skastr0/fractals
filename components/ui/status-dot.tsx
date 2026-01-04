@@ -3,18 +3,13 @@
 import type { HTMLAttributes } from 'react'
 import { tv } from 'tailwind-variants'
 
+import { cn } from '@/lib/utils'
 import type { SessionStatus as SessionStatusName } from '@/types'
 import type { SessionStatusInput } from './session-status-badge'
 
 const statusDotVariants = tv({
-  base: 'inline-flex shrink-0 rounded-full',
+  base: 'relative inline-flex shrink-0 items-center justify-center',
   variants: {
-    status: {
-      idle: 'bg-muted-foreground',
-      busy: 'bg-primary animate-pulse',
-      retry: 'bg-warning',
-      pending_permission: 'bg-error animate-pulse',
-    },
     size: {
       sm: 'h-2 w-2',
       md: 'h-3 w-3',
@@ -25,6 +20,20 @@ const statusDotVariants = tv({
     size: 'md',
   },
 })
+
+const statusDotFillVariants = tv({
+  base: 'h-full w-full rounded-full',
+  variants: {
+    status: {
+      idle: 'bg-muted-foreground/50',
+      busy: 'bg-green-500 animate-pulse',
+      retry: 'bg-yellow-500 animate-pulse',
+      pending_permission: 'bg-red-500 animate-pulse',
+    },
+  },
+})
+
+const busyPingClass = 'absolute inset-0 rounded-full bg-green-500/50 animate-ping'
 
 export interface StatusDotProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
   status: SessionStatusInput
@@ -66,10 +75,13 @@ export function StatusDot({
 
   return (
     <span
-      className={statusDotVariants({ status: statusType, size, className })}
+      className={cn(statusDotVariants({ size }), className)}
       role="img"
       aria-label={label}
       {...props}
-    />
+    >
+      <span className={statusDotFillVariants({ status: statusType })} />
+      {statusType === 'busy' ? <span className={busyPingClass} /> : null}
+    </span>
   )
 }
