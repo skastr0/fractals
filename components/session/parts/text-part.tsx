@@ -18,12 +18,17 @@ export const TextPartRenderer = memo(function TextPartRenderer({ part }: TextPar
   }
 
   const isStreaming = !part.time?.end
+  const isEmpty = !part.text.trim()
+
+  if (isEmpty && !isStreaming) {
+    return null
+  }
 
   return (
     <div
       className={cn(
-        'text-sm leading-relaxed',
-        part.synthetic ? 'text-muted-foreground italic' : '',
+        'prose prose-sm prose-invert max-w-none leading-relaxed',
+        part.synthetic ? 'text-muted-foreground italic' : 'text-foreground',
       )}
     >
       <TypewriterEffect

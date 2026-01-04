@@ -16,11 +16,45 @@ import { useProject } from './ProjectProvider'
 
 const RECONNECT_DELAY_MS = 5000
 
+// Permission type from SDK
+interface Permission {
+  id: string
+  type: string
+  pattern?: string | string[]
+  sessionID: string
+  messageID: string
+  callID?: string
+  title: string
+  metadata: Record<string, unknown>
+  time: { created: number }
+}
+
+// Todo type from SDK
+interface Todo {
+  id: string
+  content: string
+  status: string
+  priority: string
+}
+
+// FileDiff type from SDK
+interface FileDiff {
+  file: string
+  before: string
+  after: string
+  additions: number
+  deletions: number
+}
+
 export interface SyncData {
   sessions: Record<string, Session>
   messages: Record<string, Message[]>
   parts: Record<string, Part[]>
   sessionStatus: Record<string, SessionStatus>
+  permissions: Record<string, Permission[]>
+  todos: Record<string, Todo[]>
+  sessionDiffs: Record<string, FileDiff[]>
+  sessionErrors: Record<string, { name: string; data: Record<string, unknown> }>
 }
 
 export interface SyncContextValue {
@@ -48,6 +82,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       messages: {} as Record<string, Message[]>,
       parts: {} as Record<string, Part[]>,
       sessionStatus: {} as Record<string, SessionStatus>,
+      permissions: {} as Record<string, Permission[]>,
+      todos: {} as Record<string, Todo[]>,
+      sessionDiffs: {} as Record<string, FileDiff[]>,
+      sessionErrors: {} as Record<string, { name: string; data: Record<string, unknown> }>,
     },
     isConnected: false,
     lastEvent: null as Event | null,
@@ -58,6 +96,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     state$.data.messages.set({})
     state$.data.parts.set({})
     state$.data.sessionStatus.set({})
+    state$.data.permissions.set({})
+    state$.data.todos.set({})
+    state$.data.sessionDiffs.set({})
+    state$.data.sessionErrors.set({})
     state$.lastEvent.set(null)
     state$.isConnected.set(false)
   }, [state$])
@@ -90,6 +132,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           const statuses = { ...state$.data.sessionStatus.peek() }
           delete statuses[sessionId]
           state$.data.sessionStatus.set(statuses)
+
+          const permissions = { ...state$.data.permissions.peek() }
+          delete permissions[sessionId]
+          state$.data.permissions.set(permissions)
+
+          const todos = { ...state$.data.todos.peek() }
+          delete todos[sessionId]
+          state$.data.todos.set(todos)
+
+          const diffs = { ...state$.data.sessionDiffs.peek() }
+          delete diffs[sessionId]
+          state$.data.sessionDiffs.set(diffs)
+
+          const errors = { ...state$.data.sessionErrors.peek() }
+          delete errors[sessionId]
+          state$.data.sessionErrors.set(errors)
           return
         }
         case 'session.status': {
@@ -97,6 +155,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           state$.data.sessionStatus.set({
             ...sessionStatus,
             [event.properties.sessionID]: event.properties.status,
+          })
+          return
+        }
+        case 'session.error': {
+          const { sessionID, error } = event.properties
+          if (sessionID && error) {
+            const errors = state$.data.sessionErrors.peek()
+            state$.data.sessionErrors.set({
+              ...errors,
+              [sessionID]: error as { name: string; data: Record<string, unknown> },
+            })
+          }
+          return
+        }
+        case 'session.diff': {
+          const { sessionID, diff } = event.properties
+          const diffs = state$.data.sessionDiffs.peek()
+          state$.data.sessionDiffs.set({
+            ...diffs,
+            [sessionID]: diff,
           })
           return
         }
@@ -157,6 +235,43 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           state$.data.parts.set({
             ...partsByMessage,
             [messageID]: nextParts,
+          })
+          return
+        }
+        case 'permission.updated': {
+          const permission = event.properties as Permission
+          const permissions = state$.data.permissions.peek()
+          const existing = permissions[permission.sessionID] ?? []
+          const index = existing.findIndex((p) => p.id === permission.id)
+          const nextPermissions =
+            index >= 0
+              ? existing.map((p, i) => (i === index ? permission : p))
+              : [...existing, permission]
+
+          state$.data.permissions.set({
+            ...permissions,
+            [permission.sessionID]: nextPermissions,
+          })
+          return
+        }
+        case 'permission.replied': {
+          const { sessionID, permissionID } = event.properties
+          const permissions = state$.data.permissions.peek()
+          const existing = permissions[sessionID] ?? []
+          const nextPermissions = existing.filter((p) => p.id !== permissionID)
+
+          state$.data.permissions.set({
+            ...permissions,
+            [sessionID]: nextPermissions,
+          })
+          return
+        }
+        case 'todo.updated': {
+          const { sessionID, todos } = event.properties
+          const allTodos = state$.data.todos.peek()
+          state$.data.todos.set({
+            ...allTodos,
+            [sessionID]: todos,
           })
           return
         }

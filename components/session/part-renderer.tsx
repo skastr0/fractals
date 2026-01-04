@@ -4,10 +4,14 @@ import { memo } from 'react'
 import type { Part } from '@/lib/opencode'
 
 import { AgentPartRenderer } from './parts/agent-part'
+import { CompactionPartRenderer } from './parts/compaction-part'
 import { FilePartRenderer } from './parts/file-part'
 import { PatchPartRenderer } from './parts/patch-part'
 import { ReasoningPartRenderer } from './parts/reasoning-part'
+import { RetryPartRenderer } from './parts/retry-part'
+import { SnapshotPartRenderer } from './parts/snapshot-part'
 import { StepPartRenderer } from './parts/step-part'
+import { SubtaskPartRenderer } from './parts/subtask-part'
 import { TextPartRenderer } from './parts/text-part'
 import { ToolPartRenderer } from './parts/tool-part'
 
@@ -32,7 +36,18 @@ export const PartRenderer = memo(function PartRenderer({ part }: PartRendererPro
     case 'step-start':
     case 'step-finish':
       return <StepPartRenderer part={part} />
-    default:
+    case 'subtask':
+      return <SubtaskPartRenderer part={part} />
+    case 'snapshot':
+      return <SnapshotPartRenderer part={part} />
+    case 'retry':
+      return <RetryPartRenderer part={part} />
+    case 'compaction':
+      return <CompactionPartRenderer part={part} />
+    default: {
+      // Log unknown part types for debugging
+      console.warn('Unknown part type:', (part as { type: string }).type, part)
       return null
+    }
   }
 })
