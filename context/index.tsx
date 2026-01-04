@@ -8,6 +8,7 @@ import { FocusManagerProvider } from './FocusManagerProvider'
 import { OpenCodeProvider } from './OpenCodeProvider'
 import { PanesProvider } from './PanesProvider'
 import { ProjectProvider } from './ProjectProvider'
+import { SessionFilterProvider } from './SessionFilterProvider'
 import { SyncProvider } from './SyncProvider'
 import { ViewportHeightProvider } from './ViewportHeightProvider'
 
@@ -18,9 +19,11 @@ export function Providers({ children }: { children: ReactNode }) {
         <OpenCodeProvider>
           <ProjectProvider>
             <SyncProvider>
-              <PanesProvider>
-                <FocusManagerProvider>{children}</FocusManagerProvider>
-              </PanesProvider>
+              <SessionFilterProvider>
+                <PanesProvider>
+                  <FocusManagerProvider>{children}</FocusManagerProvider>
+                </PanesProvider>
+              </SessionFilterProvider>
             </SyncProvider>
           </ProjectProvider>
         </OpenCodeProvider>
@@ -37,6 +40,7 @@ export type { Pane, PanesContextValue } from './PanesProvider'
 export { PanesProvider, usePanes } from './PanesProvider'
 export type { ProjectContextValue } from './ProjectProvider'
 export { ProjectProvider, useProject } from './ProjectProvider'
+export { SessionFilterProvider, useSessionFilter } from './SessionFilterProvider'
 export type { SyncContextValue, SyncData } from './SyncProvider'
 export { SyncProvider, useSync } from './SyncProvider'
 export { ViewportHeightProvider } from './ViewportHeightProvider'
