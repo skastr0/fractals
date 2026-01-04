@@ -14,9 +14,11 @@ export interface SessionFileAttachment {
 export interface SendMessageOptions {
   sessionId: string
   content: string
+  directory: string
   files?: SessionFileAttachment[]
   agent?: string
   model?: { providerID: string; modelID: string }
+  variant?: string
 }
 
 export interface ForkSessionOptions {
@@ -108,8 +110,10 @@ export const sessionService = {
         {
           sessionID: options.sessionId,
           parts,
+          directory: options.directory,
           ...(options.agent ? { agent: options.agent } : {}),
           ...(options.model ? { model: options.model } : {}),
+          ...(options.variant ? { variant: options.variant } : {}),
         },
         { throwOnError: true },
       )

@@ -222,7 +222,7 @@ function BashTool({ part }: { part: ToolPart }) {
         <div className="font-mono text-xs">
           <span className="text-muted-foreground">$</span> {input.command}
         </div>
-        <pre className="max-h-96 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs text-foreground">
+        <pre className="max-h-96 max-w-full overflow-auto break-words rounded bg-muted/40 p-2 font-mono text-xs text-foreground">
           {output.trim()}
         </pre>
       </div>
@@ -258,7 +258,7 @@ function EditTool({ part }: { part: ToolPart }) {
     <BlockTool part={part} icon={FileEdit} title={`Edit ${normalizePath(input.filePath)}`}>
       <div className="space-y-2">
         {diff ? (
-          <pre className="max-h-96 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs">
+          <pre className="max-h-96 max-w-full overflow-auto break-words rounded bg-muted/40 p-2 font-mono text-xs">
             {diff.split('\n').map((line, lineIndex) => {
               let className = 'text-foreground'
               if (line.startsWith('+') && !line.startsWith('+++')) {
@@ -278,11 +278,11 @@ function EditTool({ part }: { part: ToolPart }) {
         ) : (
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">oldString:</div>
-            <pre className="rounded bg-red-500/10 p-2 font-mono text-xs text-red-500">
+            <pre className="max-w-full overflow-auto break-words rounded bg-red-500/10 p-2 font-mono text-xs text-red-500">
               {input.oldString}
             </pre>
             <div className="text-xs text-muted-foreground">newString:</div>
-            <pre className="rounded bg-green-500/10 p-2 font-mono text-xs text-green-500">
+            <pre className="max-w-full overflow-auto break-words rounded bg-green-500/10 p-2 font-mono text-xs text-green-500">
               {input.newString}
             </pre>
           </div>
@@ -293,9 +293,9 @@ function EditTool({ part }: { part: ToolPart }) {
               diagnostics
                 .filter((d) => d.severity === 1)
                 .slice(0, 3)
-                .map((d) => (
+                .map((d, idx) => (
                   <div
-                    key={`edit-${file}-${d.range.start.line}-${d.range.start.character}`}
+                    key={`edit-${file}-${d.range.start.line}-${d.range.start.character}-${idx}`}
                     className="text-xs text-error"
                   >
                     Error [{d.range.start.line + 1}:{d.range.start.character + 1}] {d.message}
@@ -335,7 +335,7 @@ function WriteTool({ part }: { part: ToolPart }) {
       defaultExpanded={false}
     >
       <div className="space-y-2">
-        <pre className="max-h-64 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs">
+        <pre className="max-h-64 max-w-full overflow-auto break-words rounded bg-muted/40 p-2 font-mono text-xs">
           {input.content}
         </pre>
         {metadata.diagnostics && Object.keys(metadata.diagnostics).length > 0 ? (
@@ -344,9 +344,9 @@ function WriteTool({ part }: { part: ToolPart }) {
               diagnostics
                 .filter((d) => d.severity === 1)
                 .slice(0, 3)
-                .map((d) => (
+                .map((d, idx) => (
                   <div
-                    key={`write-${file}-${d.range.start.line}-${d.range.start.character}`}
+                    key={`write-${file}-${d.range.start.line}-${d.range.start.character}-${idx}`}
                     className="text-xs text-error"
                   >
                     Error [{d.range.start.line + 1}:{d.range.start.character + 1}] {d.message}
@@ -548,7 +548,7 @@ function GenericTool({ part }: { part: ToolPart }) {
         <div className="space-y-3 border-t border-border bg-background p-3 text-sm">
           <div>
             <div className="mb-1 text-xs font-medium text-muted-foreground">Input</div>
-            <pre className="max-h-64 overflow-x-auto rounded bg-muted/40 p-2 text-xs">
+            <pre className="max-h-64 max-w-full overflow-auto break-words rounded bg-muted/40 p-2 text-xs">
               {inputText}
             </pre>
           </div>

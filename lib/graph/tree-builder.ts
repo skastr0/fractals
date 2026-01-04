@@ -186,9 +186,11 @@ export function treeToFlowElements(
       position: { x: 0, y: 0 },
       className: 'transition-transform duration-300 ease-out',
       data: {
-        sessionId: node.data.id,
+        sessionKey: node.data.id,
         title: node.data.title ?? '',
+        projectLabel: '',
         status: 'idle',
+
         depth: node.depth,
         isSubagent: Boolean(node.data.parentID) || node.depth > 0,
         isSelected: false,

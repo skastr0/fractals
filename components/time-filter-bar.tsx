@@ -1,14 +1,19 @@
 'use client'
 
+import { useMemo } from 'react'
+
 import { useSessionFilter } from '@/context/SessionFilterProvider'
 import { useSessions } from '@/hooks/useSessions'
-import { SESSION_TIME_FILTERS } from '@/lib/graph/session-filter'
+import { filterSessionsByHours, SESSION_TIME_FILTERS } from '@/lib/graph/session-filter'
 import { cn } from '@/lib/utils'
 
 export function TimeFilterBar() {
   const { filterHours, setFilterHours } = useSessionFilter()
   const { sessions } = useSessions()
-  const sessionCount = sessions.length
+
+  const sessionCount = useMemo(() => {
+    return filterSessionsByHours(sessions, filterHours).length
+  }, [filterHours, sessions])
 
   return (
     <div className="flex items-center gap-3">

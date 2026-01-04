@@ -1,6 +1,6 @@
 'use client'
 
-import { useObservable, useSelector } from '@legendapp/state/react'
+import { use$, useObservable } from '@legendapp/state/react'
 import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react'
 import type { Project } from '@/lib/opencode'
 import { useOpenCode } from './OpenCodeProvider'
@@ -44,11 +44,39 @@ const writeStoredProjectId = (projectId: string) => {
   }
 }
 
+export const getActiveProject = ({
+  currentProject,
+  selectedProjectIds,
+  projects,
+}: {
+  currentProject: Project | null
+  selectedProjectIds: string[]
+  projects: Project[]
+}): Project | null => {
+  // When multiple filters are selected, only use the current project if it's selected.
+  if (selectedProjectIds.length === 0) {
+    return currentProject
+  }
+
+  if (currentProject && selectedProjectIds.includes(currentProject.id)) {
+    return currentProject
+  }
+
+  if (selectedProjectIds.length === 1) {
+    return projects.find((project) => project.id === selectedProjectIds[0]) ?? null
+  }
+
+  return null
+}
+
 export interface ProjectContextValue {
   projects: Project[]
   currentProject: Project | null
+  selectedProjectIds: string[]
   isLoading: boolean
   selectProject: (projectId: string) => Promise<void>
+  toggleSelectedProject: (projectId: string) => void
+  clearSelectedProjects: () => void
   refreshProjects: () => Promise<void>
 }
 
@@ -59,6 +87,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const state$ = useObservable({
     projects: [] as Project[],
     currentProject: null as Project | null,
+    selectedProjectIds: [] as string[],
     isLoading: false,
   })
 
@@ -82,6 +111,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (current && !projects.some((project) => project.id === current.id)) {
         state$.currentProject.set(null)
       }
+
+      const selectedIds = state$.selectedProjectIds.peek()
+      if (selectedIds.length > 0) {
+        const nextSelected = selectedIds.filter((id) =>
+          projects.some((project) => project.id === id),
+        )
+        if (nextSelected.length !== selectedIds.length) {
+          state$.selectedProjectIds.set(nextSelected)
+        }
+      }
     } finally {
       state$.isLoading.set(false)
     }
@@ -97,13 +136,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [state$],
   )
 
+  const toggleSelectedProject = useCallback(
+    (projectId: string) => {
+      const selected = state$.selectedProjectIds.peek()
+      if (selected.includes(projectId)) {
+        state$.selectedProjectIds.set(selected.filter((id) => id !== projectId))
+        return
+      }
+      state$.selectedProjectIds.set([...selected, projectId])
+    },
+    [state$],
+  )
+
+  const clearSelectedProjects = useCallback(() => {
+    state$.selectedProjectIds.set([])
+  }, [state$])
+
   useEffect(() => {
     void refreshProjects()
   }, [refreshProjects])
 
-  const projects = useSelector(() => state$.projects.get())
-  const currentProject = useSelector(() => state$.currentProject.get())
-  const isLoading = useSelector(() => state$.isLoading.get())
+  const projects = use$(() => state$.projects.get())
+  const currentProject = use$(() => state$.currentProject.get())
+  const selectedProjectIds = use$(() => state$.selectedProjectIds.get())
+  const isLoading = use$(() => state$.isLoading.get())
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -135,8 +191,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const value: ProjectContextValue = {
     projects,
     currentProject,
+    selectedProjectIds,
     isLoading,
     selectProject,
+    toggleSelectedProject,
+    clearSelectedProjects,
     refreshProjects,
   }
 

@@ -6,18 +6,22 @@ import { Markdown } from '@/components/ui/markdown'
 import type { TextPart } from '@/lib/opencode'
 import { cn } from '@/lib/utils'
 
-import { TypewriterEffect } from '../typewriter-effect'
-
 interface TextPartRendererProps {
   part: TextPart
+  /** Whether this part belongs to an assistant message (enables streaming cursor) */
+  isAssistant?: boolean
 }
 
-export const TextPartRenderer = memo(function TextPartRenderer({ part }: TextPartRendererProps) {
+export const TextPartRenderer = memo(function TextPartRenderer({
+  part,
+  isAssistant = false,
+}: TextPartRendererProps) {
   if (part.ignored) {
     return null
   }
 
-  const isStreaming = !part.time?.end
+  // Only show streaming cursor for assistant messages that are actively streaming
+  const isStreaming = isAssistant && !part.time?.end
   const isEmpty = !part.text.trim()
 
   if (isEmpty && !isStreaming) {
@@ -31,11 +35,13 @@ export const TextPartRenderer = memo(function TextPartRenderer({ part }: TextPar
         part.synthetic ? 'text-muted-foreground italic' : 'text-foreground',
       )}
     >
-      <TypewriterEffect
-        text={part.text}
-        isStreaming={isStreaming}
-        render={(value) => <Markdown content={value} />}
-      />
+      <Markdown content={part.text} />
+      {isStreaming && (
+        <span
+          className="ml-1 inline-block h-4 w-0.5 bg-primary"
+          style={{ animation: 'blink 1s step-start infinite' }}
+        />
+      )}
     </div>
   )
 })

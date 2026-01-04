@@ -43,11 +43,12 @@ export function FocusManagerProvider({ children }: { children: ReactNode }) {
     [focusContext$],
   )
 
-  const isInputFocused = () => focusContext$.area.get() === 'input'
-  const isPaneFocused = () => focusContext$.area.get() === 'pane'
-  const isGraphFocused = () => focusContext$.area.get() === 'graph'
+  // V3: Use peek() for imperative checks (called from event handlers, not render)
+  const isInputFocused = () => focusContext$.area.peek() === 'input'
+  const isPaneFocused = () => focusContext$.area.peek() === 'pane'
+  const isGraphFocused = () => focusContext$.area.peek() === 'graph'
   const canTriggerGlobalShortcuts = () => {
-    const area = focusContext$.area.get()
+    const area = focusContext$.area.peek()
     return area === 'graph' || area === 'none'
   }
 

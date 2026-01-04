@@ -3,15 +3,8 @@
 import { Clock, FolderOpen, GitBranch } from 'lucide-react'
 
 import { useProject } from '@/context/ProjectProvider'
+import { formatProjectLabel } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/utils/date'
-
-const projectBaseName = (worktree: string): string => {
-  const parts = worktree.split(/[/\\]/)
-  return parts[parts.length - 1] || worktree
-}
-
-const formatProjectPath = (worktree: string): string =>
-  worktree.replace(/^\/Users\/[^/]+/, '~').replace(/^C:\\Users\\[^\\]+/i, '~')
 
 export function ProjectInfo() {
   const { currentProject } = useProject()
@@ -20,8 +13,7 @@ export function ProjectInfo() {
     return null
   }
 
-  const name = currentProject.name ?? projectBaseName(currentProject.worktree)
-  const path = formatProjectPath(currentProject.worktree)
+  const { name, path } = formatProjectLabel(currentProject)
 
   return (
     <div className="border-b border-border bg-background/95 px-4 py-2">

@@ -1,6 +1,6 @@
 'use client'
 
-import { FolderOpen, Plus, Search } from 'lucide-react'
+import { Check, FolderOpen, Plus, Search } from 'lucide-react'
 import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -9,17 +9,7 @@ import { Input } from '@/components/ui/input'
 import { useOpenCode } from '@/context/OpenCodeProvider'
 import { useProject } from '@/context/ProjectProvider'
 import type { Project } from '@/lib/opencode'
-
-const projectBaseName = (worktree: string): string => {
-  const parts = worktree.split(/[/\\]/)
-  return parts[parts.length - 1] || worktree
-}
-
-const formatProjectName = (project: Project): string =>
-  project.name ?? projectBaseName(project.worktree)
-
-const formatProjectPath = (project: Project): string =>
-  project.worktree.replace(/^\/Users\/[^/]+/, '~').replace(/^C:\\Users\\[^\\]+/i, '~')
+import { formatProjectLabel } from '@/lib/utils'
 
 const normalizeSearchValue = (value: string): string => value.toLowerCase().replace(/\s+/g, '')
 
@@ -45,7 +35,15 @@ const fuzzyMatch = (query: string, text: string): boolean => {
 
 export function ProjectSelector() {
   const { client } = useOpenCode()
-  const { projects, currentProject, isLoading, selectProject, refreshProjects } = useProject()
+  const {
+    projects,
+    selectedProjectIds,
+    isLoading,
+    selectProject,
+    toggleSelectedProject,
+    clearSelectedProjects,
+    refreshProjects,
+  } = useProject()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [customPath, setCustomPath] = useState('')
   const [isAdding, setIsAdding] = useState(false)
@@ -82,7 +80,7 @@ export function ProjectSelector() {
     ? 'Loading projects...'
     : isOpen
       ? 'Search projects...'
-      : 'Select project'
+      : 'Filter projects'
 
   const filteredProjects = useMemo<Project[]>(() => {
     const query = searchTerm.trim()
@@ -91,18 +89,50 @@ export function ProjectSelector() {
     }
 
     return projects.filter((project) => {
-      const name = formatProjectName(project)
+      const name = formatProjectLabel(project).name
       const path = project.worktree
       return fuzzyMatch(query, name) || fuzzyMatch(query, path)
     })
   }, [projects, searchTerm])
 
-  const displayValue = isOpen ? searchTerm : currentProject ? formatProjectName(currentProject) : ''
+  const selectedProjects = useMemo<Project[]>(() => {
+    if (selectedProjectIds.length === 0) {
+      return []
+    }
+    const selectedSet = new Set(selectedProjectIds)
+    return projects.filter((project) => selectedSet.has(project.id))
+  }, [projects, selectedProjectIds])
 
-  const handleSelect = (project: Project) => {
-    void selectProject(project.id)
-    setIsOpen(false)
-    setSearchTerm('')
+  const selectionLabel = useMemo(() => {
+    if (selectedProjectIds.length === 0) {
+      return 'All projects'
+    }
+    if (selectedProjects.length === 1) {
+      const project = selectedProjects[0]
+      if (project) {
+        return formatProjectLabel(project).name
+      }
+      return '1 project'
+    }
+    if (selectedProjects.length > 1) {
+      return `${selectedProjects.length} projects`
+    }
+    return `${selectedProjectIds.length} projects`
+  }, [selectedProjectIds.length, selectedProjects])
+
+  const displayValue = isOpen ? searchTerm : selectionLabel
+  const isAllSelected = selectedProjectIds.length === 0
+
+  const handleToggle = (project: Project) => {
+    const isSelected = selectedProjectIds.includes(project.id)
+    toggleSelectedProject(project.id)
+    if (!isSelected) {
+      void selectProject(project.id)
+    }
+  }
+
+  const handleClearAll = () => {
+    clearSelectedProjects()
   }
 
   const handleInputFocus = () => {
@@ -193,53 +223,75 @@ export function ProjectSelector() {
           disabled={isLoading}
           className="h-8 w-full rounded-md border border-border bg-background py-1.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
         />
-        {isOpen && filteredProjects.length > 0 ? (
+        {isOpen ? (
           <div
             id="project-selector-listbox"
             role="listbox"
+            aria-multiselectable="true"
             className="absolute top-full z-50 mt-1 max-h-[300px] w-full overflow-auto rounded-lg border border-border bg-background shadow-lg"
           >
-            {filteredProjects.map((project) => {
-              const isSelected = currentProject?.id === project.id
-              return (
-                <button
-                  key={project.id}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => handleSelect(project)}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-secondary/50 ${
-                    isSelected ? 'bg-primary/10' : ''
-                  }`}
-                >
-                  {project.icon?.url ? (
-                    <span
-                      className="h-4 w-4 flex-shrink-0 rounded bg-cover bg-center"
-                      style={{ backgroundImage: `url(${project.icon.url})` }}
+            <button
+              type="button"
+              role="option"
+              aria-selected={isAllSelected}
+              onClick={handleClearAll}
+              className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-secondary/50 ${
+                isAllSelected ? 'bg-primary/10' : ''
+              }`}
+            >
+              <span className="text-sm font-medium text-foreground">All projects</span>
+              <Check
+                className={`ml-auto h-4 w-4 text-primary ${
+                  isAllSelected ? 'opacity-100' : 'opacity-0'
+                }`}
+                aria-hidden="true"
+              />
+            </button>
+            {filteredProjects.length > 0 ? (
+              filteredProjects.map((project) => {
+                const isSelected = selectedProjectIds.includes(project.id)
+                const { name, path } = formatProjectLabel(project)
+                return (
+                  <button
+                    key={project.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleToggle(project)}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-secondary/50 ${
+                      isSelected ? 'bg-primary/10' : ''
+                    }`}
+                  >
+                    {project.icon?.url ? (
+                      <span
+                        className="h-4 w-4 flex-shrink-0 rounded bg-cover bg-center"
+                        style={{ backgroundImage: `url(${project.icon.url})` }}
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <FolderOpen
+                        className="h-4 w-4 flex-shrink-0"
+                        style={{ color: project.icon?.color ?? 'currentColor' }}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-foreground">{name}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {path ?? project.worktree}
+                      </div>
+                    </div>
+                    <Check
+                      className={`ml-auto h-4 w-4 text-primary ${
+                        isSelected ? 'opacity-100' : 'opacity-0'
+                      }`}
                       aria-hidden="true"
                     />
-                  ) : (
-                    <FolderOpen
-                      className="h-4 w-4 flex-shrink-0"
-                      style={{ color: project.icon?.color ?? 'currentColor' }}
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground">
-                      {formatProjectName(project)}
-                    </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {formatProjectPath(project)}
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        ) : null}
-        {isOpen && filteredProjects.length === 0 && searchTerm.trim().length > 0 ? (
-          <div className="absolute top-full z-50 mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground shadow-lg">
-            No projects found.
+                  </button>
+                )
+              })
+            ) : searchTerm.trim().length > 0 ? (
+              <div className="px-3 py-2 text-xs text-muted-foreground">No projects found.</div>
+            ) : null}
           </div>
         ) : null}
       </div>
