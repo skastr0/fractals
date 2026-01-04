@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 const paneVariants = tv({
   slots: {
     root: [
-      'flex h-full min-w-0 flex-shrink-0 flex-col rounded-lg border border-border',
+      'flex h-full max-h-full min-h-0 min-w-0 flex-shrink-0 flex-col rounded-lg border border-border',
       'bg-background/95 backdrop-blur-sm shadow-lg',
       'overflow-hidden',
       'transition-[width,opacity,transform] duration-200 ease-out',
@@ -19,12 +19,12 @@ const paneVariants = tv({
       'data-[state=closing]:slide-out-to-right-2',
     ],
     header: [
-      'flex items-center justify-between gap-2 px-4 py-3',
+      'flex flex-shrink-0 items-center justify-between gap-2 px-4 py-3',
       'border-b border-border bg-background/50',
     ],
     title: 'text-sm font-medium text-foreground truncate',
     actions: 'flex items-center gap-1',
-    content: 'flex-1 min-h-0 overflow-auto',
+    content: 'flex-1 min-h-0 overflow-hidden',
   },
 })
 
@@ -51,11 +51,12 @@ export function Pane({
 }: PaneProps) {
   const styles = paneVariants()
   const state = isClosing ? 'closing' : 'open'
+  const widthStyle = width >= 100 ? '100%' : `${width}%`
 
   return (
     <section
       className={styles.root()}
-      style={{ width: `${width}%` }}
+      style={{ width: widthStyle }}
       data-pane-id={id}
       data-state={state}
       aria-label={title}

@@ -5,7 +5,6 @@ import { useState } from 'react'
 
 import { SessionGraph } from '@/components/graph'
 import { PaneContainer } from '@/components/panes'
-import { ProjectInfo } from '@/components/project-info'
 import { usePanes } from '@/context/PanesProvider'
 
 import { CommandBar } from './command-bar'
@@ -21,8 +20,7 @@ export const AppShell = observer(function AppShell() {
   const hasPanes = panes.length > 0
   const workspaceWidth = hasPanes ? (isWorkspaceMaximized ? 100 : totalWidth) : 0
   const graphOpacity = isWorkspaceMaximized ? 0.15 : hasPanes ? 0.7 : 1
-  const graphWidth =
-    hasPanes && !isWorkspaceMaximized ? `calc(100% - ${workspaceWidth}% - 0.5rem)` : '100%'
+  const mainClassName = `relative flex min-h-0 flex-1 overflow-hidden${hasPanes ? ' gap-2' : ''}`
 
   const handleToggleWorkspace = () => {
     if (!hasPanes) {
@@ -33,20 +31,18 @@ export const AppShell = observer(function AppShell() {
 
   return (
     <div
-      className="flex min-h-screen flex-col bg-background"
-      style={{ minHeight: 'var(--app-height, 100vh)' }}
+      className="flex h-screen max-h-screen flex-col overflow-hidden bg-background"
+      style={{ height: 'var(--app-height, 100vh)' }}
     >
       <Header
         isWorkspaceMaximized={isWorkspaceMaximized}
         canToggleWorkspace={hasPanes}
         onToggleWorkspace={handleToggleWorkspace}
       />
-      <ProjectInfo />
-
-      <main className="relative flex flex-1 overflow-hidden">
+      <main className={mainClassName}>
         <div
-          className="absolute inset-0 transition-opacity duration-300"
-          style={{ opacity: graphOpacity, width: graphWidth }}
+          className="min-h-0 min-w-0 flex-1 transition-opacity duration-300"
+          style={{ opacity: graphOpacity }}
         >
           <div className="h-full w-full border-r border-border/40">
             <SessionGraph />
@@ -54,7 +50,10 @@ export const AppShell = observer(function AppShell() {
         </div>
 
         {hasPanes ? (
-          <div className="absolute inset-0 flex justify-end">
+          <div
+            className="h-full min-h-0 flex-shrink-0 transition-[width] duration-300"
+            style={{ width: `${workspaceWidth}%` }}
+          >
             <PaneContainer widthOverride={workspaceWidth} />
           </div>
         ) : null}
