@@ -62,3 +62,43 @@ The app connects to a local OpenCode server (default: localhost:5577) and uses:
 3. **React Aria** - Accessible, unstyled components
 4. **Pane-based navigation** - Multi-pane for side-by-side views
 5. **Dark theme first** - Matches OpenCode aesthetics
+
+## Codebase Knowledge Map (cmap)
+
+This project uses cmap for codebase indexing and navigation. The knowledge map is auto-loaded via `.opencode/opencode.json`.
+
+### Key Files
+
+- `.cmap/views/ROOT_ATLAS.md` - Top-level overview of the codebase (auto-loaded)
+- `.cmap/views/TERMS.md` - Glossary of domain terms and concepts
+- `.cmap/views/CONNECTIONS.md` - Module dependencies and relationships
+- `.cmap/views/folders/*.md` - Per-folder summaries
+
+### Usage
+
+**Read the atlas first** when exploring unfamiliar code:
+```bash
+# Check what exists
+cmap_atlas
+
+# Or read directly
+read .cmap/views/ROOT_ATLAS.md
+```
+
+**Rebuild after significant changes**:
+```bash
+cmap_build
+```
+
+**Check status**:
+```bash
+cmap_status
+```
+
+### When to Rebuild
+
+Rebuild the cmap index when:
+- Adding new files or folders
+- Renaming or moving files
+- After significant refactoring
+- Starting a new session (if stale)
