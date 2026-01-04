@@ -24,10 +24,10 @@ export function PaneContainer({ widthOverride }: PaneContainerProps) {
     if (widthOverride === undefined || widthOverride === null) {
       return `${totalWidth}%`
     }
-    if (typeof widthOverride === 'number') {
-      return `${widthOverride}%`
+    if (typeof widthOverride === 'string' && !widthOverride.trim().endsWith('%')) {
+      return widthOverride
     }
-    return widthOverride
+    return '100%'
   }, [totalWidth, widthOverride])
   const [closingPaneIds, setClosingPaneIds] = useState<Set<PaneId>>(new Set())
   const closeTimers = useRef<Record<string, number>>({})
@@ -148,7 +148,10 @@ export function PaneContainer({ widthOverride }: PaneContainerProps) {
   }
 
   return (
-    <div className="flex h-full gap-2 p-2" style={{ width: containerWidth }}>
+    <div
+      className="flex h-full max-h-full min-h-0 w-full gap-2 overflow-hidden p-2"
+      style={{ width: containerWidth }}
+    >
       {panes.map((pane) => {
         const isStacked = pane.components.length > 1
         const activeComponent = pane.components[pane.components.length - 1] ?? null
