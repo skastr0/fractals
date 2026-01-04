@@ -133,16 +133,16 @@ export const MessageList = memo(function MessageList({ sessionId }: MessageListP
   }
 
   return (
-    <div className="relative flex h-full flex-col">
+    <div className="relative flex h-full max-h-full min-h-0 flex-col overflow-hidden">
       {isWorking ? (
-        <div className="flex items-center gap-2 border-b border-primary/20 bg-primary/5 px-4 py-2 text-xs text-primary">
+        <div className="flex flex-shrink-0 items-center gap-2 border-b border-primary/20 bg-primary/5 px-4 py-2 text-xs text-primary">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           <span>{status.type === 'retry' ? 'Retrying...' : 'Generating response...'}</span>
         </div>
       ) : null}
 
       {userMessages.length > 1 ? (
-        <div className="flex items-center justify-center gap-2 border-b border-border py-2">
+        <div className="flex flex-shrink-0 items-center justify-center gap-2 border-b border-border py-2">
           <Button
             variant="ghost"
             size="sm"
@@ -167,7 +167,7 @@ export const MessageList = memo(function MessageList({ sessionId }: MessageListP
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto" onScroll={handleScroll}>
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto" onScroll={handleScroll}>
         <div ref={contentRef} className="flex flex-col gap-4 p-4 pb-32">
           {userMessages.map((userMessage, index) => (
             <MessageTurn
