@@ -1,6 +1,6 @@
 'use client'
 
-import { useSelector } from '@legendapp/state/react'
+import { use$ } from '@legendapp/state/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useFocusManager } from '@/context/FocusManagerProvider'
@@ -18,8 +18,8 @@ interface PaneContainerProps {
 export function PaneContainer({ widthOverride }: PaneContainerProps) {
   const panes$ = usePanes()
   const { canTriggerGlobalShortcuts } = useFocusManager()
-  const panes = useSelector(() => panes$.panes.get())
-  const totalWidth = useSelector(() => panes$.getTotalPaneWidthPercentage())
+  const panes = use$(() => panes$.panes.get())
+  const totalWidth = use$(() => panes$.getTotalPaneWidthPercentage())
   const containerWidth = useMemo(() => {
     if (widthOverride === undefined || widthOverride === null) {
       return `${totalWidth}%`

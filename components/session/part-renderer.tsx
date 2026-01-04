@@ -17,12 +17,14 @@ import { ToolPartRenderer } from './parts/tool-part'
 
 interface PartRendererProps {
   part: Part
+  /** Whether this part belongs to an assistant message (enables streaming cursor) */
+  isAssistant?: boolean
 }
 
-export const PartRenderer = memo(function PartRenderer({ part }: PartRendererProps) {
+export const PartRenderer = memo(function PartRenderer({ part, isAssistant }: PartRendererProps) {
   switch (part.type) {
     case 'text':
-      return <TextPartRenderer part={part} />
+      return <TextPartRenderer part={part} isAssistant={isAssistant} />
     case 'reasoning':
       return <ReasoningPartRenderer part={part} />
     case 'tool':

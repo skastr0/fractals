@@ -29,6 +29,24 @@ export type PanesContextValue = Observable<{
 const SINGLETON_PANE_TYPES: PaneType[] = ['session', 'config', 'project', 'metadata']
 const DEFAULT_PANE_WIDTH_PERCENTAGE = 15
 
+// Helper to check if a new pane can be opened (pure function, no observables)
+const checkCanOpenNewPane = (currentPanes: Pane[], type?: PaneType): boolean => {
+  if (type === 'session') {
+    return true
+  }
+
+  const nonSessionCount = currentPanes.filter((pane) => pane.type !== 'session').length
+  if (nonSessionCount >= 3) {
+    return false
+  }
+
+  if (currentPanes.length >= 4) {
+    return false
+  }
+
+  return true
+}
+
 const PanesContext = createContext<PanesContextValue | null>(null)
 
 export function usePanes(): PanesContextValue {
@@ -42,6 +60,7 @@ export function usePanes(): PanesContextValue {
 export function PanesProvider({ children }: { children: ReactNode }) {
   const state$ = useObservable({
     panes: [] as Pane[],
+    // V3: Use peek() instead of get() in imperative actions to avoid subscriptions
     openPane: ({
       type,
       component,
@@ -51,7 +70,7 @@ export function PanesProvider({ children }: { children: ReactNode }) {
       component: ReactNode
       title?: string
     }) => {
-      const currentPanes = state$.panes.get()
+      const currentPanes = state$.panes.peek()
       const defaultTitle = title ?? type.charAt(0).toUpperCase() + type.slice(1)
 
       if (SINGLETON_PANE_TYPES.includes(type)) {
@@ -60,7 +79,7 @@ export function PanesProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        if (type !== 'session' && !state$.canOpenNewPane(type)) {
+        if (type !== 'session' && !checkCanOpenNewPane(currentPanes, type)) {
           return
         }
 
@@ -81,7 +100,7 @@ export function PanesProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      if (!state$.canOpenNewPane(type)) {
+      if (!checkCanOpenNewPane(currentPanes, type)) {
         return
       }
 
@@ -102,7 +121,7 @@ export function PanesProvider({ children }: { children: ReactNode }) {
       state$.panes.set([...currentPanes, newPane])
     },
     setPaneTitle: (id: PaneId, title: string) => {
-      const currentPanes = state$.panes.get()
+      const currentPanes = state$.panes.peek()
       const paneIndex = currentPanes.findIndex((pane) => pane.id === id)
       if (paneIndex < 0) {
         return
@@ -114,11 +133,11 @@ export function PanesProvider({ children }: { children: ReactNode }) {
       pane.title.set(title)
     },
     closePane: (id: PaneId) => {
-      const currentPanes = state$.panes.get()
+      const currentPanes = state$.panes.peek()
       state$.panes.set(currentPanes.filter((pane) => pane.id !== id))
     },
     closeMostRecentPane: () => {
-      const currentPanes = state$.panes.get()
+      const currentPanes = state$.panes.peek()
       if (currentPanes.length === 0) {
         return
       }
@@ -126,10 +145,11 @@ export function PanesProvider({ children }: { children: ReactNode }) {
       if (!mostRecentPane) {
         return
       }
-      state$.closePane(mostRecentPane.id)
+      // Inline the closePane logic to avoid observable method call
+      state$.panes.set(currentPanes.filter((pane) => pane.id !== mostRecentPane.id))
     },
     stackPane: (id: PaneId, component: ReactNode) => {
-      const currentPanes = state$.panes.get()
+      const currentPanes = state$.panes.peek()
       const paneIndex = currentPanes.findIndex((pane) => pane.id === id)
       if (paneIndex < 0) {
         return
@@ -138,10 +158,10 @@ export function PanesProvider({ children }: { children: ReactNode }) {
       if (!pane) {
         return
       }
-      pane.components.set([...pane.components.get(), component])
+      pane.components.set([...pane.components.peek(), component])
     },
     unstackPaneOnce: (id: PaneId) => {
-      const currentPanes = state$.panes.get()
+      const currentPanes = state$.panes.peek()
       const paneIndex = currentPanes.findIndex((pane) => pane.id === id)
       if (paneIndex < 0) {
         return
@@ -150,28 +170,14 @@ export function PanesProvider({ children }: { children: ReactNode }) {
       if (!pane) {
         return
       }
-      pane.components.set(pane.components.get().slice(0, -1))
+      pane.components.set(pane.components.peek().slice(0, -1))
     },
+    // V3: Use peek() for imperative reads
     canOpenNewPane: (type?: PaneType) => {
-      const currentPanes = state$.panes.get()
-
-      if (type === 'session') {
-        return true
-      }
-
-      const nonSessionCount = currentPanes.filter((pane) => pane.type !== 'session').length
-      if (nonSessionCount >= 3) {
-        return false
-      }
-
-      if (currentPanes.length >= 4) {
-        return false
-      }
-
-      return true
+      return checkCanOpenNewPane(state$.panes.peek(), type)
     },
     getTotalPaneWidthPercentage: () => {
-      const openPanes = state$.panes.get().length
+      const openPanes = state$.panes.peek().length
       switch (openPanes) {
         case 1:
           return 40

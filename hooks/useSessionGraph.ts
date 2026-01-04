@@ -4,6 +4,7 @@ import type { Edge, Node } from '@xyflow/react'
 import ELK from 'elkjs/lib/elk.bundled.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { useProject } from '@/context/ProjectProvider'
 import { useSessionFilter } from '@/context/SessionFilterProvider'
 import { useSync } from '@/context/SyncProvider'
 import { filterSessionsByHours } from '@/lib/graph/session-filter'
@@ -15,6 +16,8 @@ import {
   type SessionTreeNode,
   treeToFlowElements,
 } from '@/lib/graph/tree-builder'
+import type { Session } from '@/lib/opencode'
+import { formatProjectLabel, parseSessionKey } from '@/lib/utils'
 import type { SessionNodeData, SubagentGroupData } from '@/types'
 
 import { useSessions } from './useSessions'
@@ -33,6 +36,10 @@ const LAYOUT_OPTIONS = {
 type SessionFlowNode = Node<SessionNodeData, 'session'>
 
 type SubagentGroupNode = Node<SubagentGroupData, 'subagentGroup'>
+
+type SessionWithKey = Session & {
+  sessionKey: string
+}
 
 type ArrowDirection = 'left' | 'right' | 'up' | 'down'
 
@@ -148,9 +155,13 @@ const buildGroupNodes = (
   return groups
 }
 
+const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000 // 24 hours
+
 export function useSessionGraph() {
-  const { sessions } = useSessions()
-  const sync = useSync()
+  const { sessions: rawSessions } = useSessions()
+  const sessions = rawSessions as SessionWithKey[]
+  const { state$ } = useSync()
+  const { projects } = useProject()
   const { filterHours, setFilterHours } = useSessionFilter()
   const elk = useMemo(() => new ELK(), [])
   const treeIndexRef = useRef<Map<string, SessionTreeNode>>(new Map())
@@ -159,6 +170,9 @@ export function useSessionGraph() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [collapsedSessions, setCollapsedSessions] = useState<Set<string>>(new Set())
   const [isLayouting, setIsLayouting] = useState(false)
+
+  // Track sessions the user has manually expanded (survives re-renders)
+  const userExpandedSessions = useRef<Set<string>>(new Set())
 
   const nodeCenters = useMemo(() => {
     return new Map(
@@ -173,24 +187,90 @@ export function useSessionGraph() {
     setCollapsedSessions((prev) => {
       const next = new Set(prev)
       if (next.has(sessionId)) {
+        // Expanding: track that user wants this expanded
         next.delete(sessionId)
+        userExpandedSessions.current.add(sessionId)
       } else {
+        // Collapsing: user no longer wants this expanded
         next.add(sessionId)
+        userExpandedSessions.current.delete(sessionId)
       }
       return next
     })
   }, [])
 
   const filteredSessions = useMemo(
-    () => filterSessionsByHours(sessions, filterHours),
+    () => filterSessionsByHours(sessions, filterHours) as SessionWithKey[],
     [filterHours, sessions],
   )
+
+  const sessionKeyById = useMemo(() => {
+    return new Map(sessions.map((session) => [session.id, session.sessionKey]))
+  }, [sessions])
+
+  const directoryBySessionKey = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const session of sessions) {
+      const parsed = parseSessionKey(session.sessionKey)
+      const directory = parsed?.directory ?? session.directory
+      if (directory) {
+        map.set(session.sessionKey, directory)
+      }
+    }
+    return map
+  }, [sessions])
+
+  const projectByDirectory = useMemo(() => {
+    return new Map(projects.map((project) => [project.worktree, project]))
+  }, [projects])
+
+  const resolveProjectLabel = useCallback(
+    (sessionKey: string) => {
+      const directory =
+        directoryBySessionKey.get(sessionKey) ?? parseSessionKey(sessionKey)?.directory
+      const project = directory ? projectByDirectory.get(directory) : undefined
+      return formatProjectLabel(project, directory).label
+    },
+    [directoryBySessionKey, projectByDirectory],
+  )
+
+  const graphSessions = useMemo(() => {
+    return filteredSessions.map((session) => {
+      const parentKey = session.parentID ? sessionKeyById.get(session.parentID) : undefined
+
+      return {
+        ...session,
+        id: session.sessionKey,
+        parentID: parentKey,
+      }
+    })
+  }, [filteredSessions, sessionKeyById])
 
   const _sessionCount = sessions.length
   const _filteredSessionCount = filteredSessions.length
 
+  // Find the most recent session by updatedAt timestamp and reference time for staleness
+  const { mostRecentSessionId, referenceTime } = useMemo(() => {
+    const now = Date.now()
+
+    if (filteredSessions.length === 0) {
+      return { mostRecentSessionId: null, referenceTime: now }
+    }
+
+    let mostRecent = filteredSessions[0]
+    for (const session of filteredSessions) {
+      const sessionUpdated = session.time?.updated ?? session.time?.created ?? 0
+      const mostRecentUpdated = mostRecent?.time?.updated ?? mostRecent?.time?.created ?? 0
+      if (sessionUpdated > mostRecentUpdated) {
+        mostRecent = session
+      }
+    }
+
+    return { mostRecentSessionId: mostRecent?.sessionKey ?? null, referenceTime: now }
+  }, [filteredSessions])
+
   const treeResult = useMemo(() => {
-    const result = buildSessionTree(filteredSessions, {
+    const result = buildSessionTree(graphSessions, {
       previousIndex: treeIndexRef.current,
       reuseNodes: true,
       onCircularReference: (path, sessionId) => {
@@ -200,11 +280,30 @@ export function useSessionGraph() {
 
     treeIndexRef.current = result.index
     return result
-  }, [filteredSessions])
+  }, [graphSessions])
 
   const tree = treeResult.tree
   const treeStats = useMemo(() => getTreeStats(tree), [tree])
   const childCounts = useMemo(() => collectChildCounts(tree), [tree])
+
+  // Auto-collapse sessions with children by default (preserves user expansions)
+  useEffect(() => {
+    setCollapsedSessions((prev) => {
+      let changed = false
+      const next = new Set(prev)
+
+      for (const [sessionId, count] of childCounts) {
+        // Has children AND user hasn't explicitly expanded it AND not already collapsed
+        if (count > 0 && !userExpandedSessions.current.has(sessionId) && !next.has(sessionId)) {
+          next.add(sessionId)
+          changed = true
+        }
+      }
+
+      // Return same reference if nothing changed to avoid re-renders
+      return changed ? next : prev
+    })
+  }, [childCounts])
 
   const highlightedSessions = useMemo(() => {
     if (!selectedSessionId) {
@@ -236,8 +335,8 @@ export function useSessionGraph() {
   }, [childCounts, collapsedSessions, displayTree, toggleCollapse])
 
   const sessionIdSet = useMemo(
-    () => new Set(filteredSessions.map((session) => session.id)),
-    [filteredSessions],
+    () => new Set(graphSessions.map((session) => session.id)),
+    [graphSessions],
   )
 
   useEffect(() => {
@@ -378,7 +477,9 @@ export function useSessionGraph() {
     setSelectedSessionId(null)
   }, [])
 
-  const statusMap = sync.data.sessionStatus
+  // NOTE: Status is now handled at the SessionNode level for granular subscriptions
+  // Each SessionNode subscribes to its own status, reducing re-renders significantly
+  // For edges, we use peek() to get status without subscribing (edge animation is non-critical)
 
   const groupNodes = useMemo(() => {
     if (layoutedNodes.length === 0) {
@@ -391,26 +492,45 @@ export function useSessionGraph() {
 
   const nodes = useMemo<Array<Node<SessionNodeData | SubagentGroupData>>>(() => {
     const sessionNodes = layoutedNodes.map((node) => {
-      const status = getStatusType(statusMap[node.id])
+      // Status is now fetched at the SessionNode level for granular subscriptions
+      // We pass 'idle' as default; the node will subscribe to its own live status
       const isSelected = node.id === selectedSessionId
+      const isMostRecent = node.id === mostRecentSessionId
+      const age = referenceTime - node.data.updatedAt
+      const isStale = age > STALE_THRESHOLD_MS
+      const projectLabel = resolveProjectLabel(node.data.sessionKey)
 
       return {
         ...node,
         data: {
           ...node.data,
-          status,
+          status: 'idle' as const, // Default; SessionNode subscribes to live status
           isSelected,
           isHighlighted: highlightedSessions.has(node.id),
+          isMostRecent,
+          isStale,
+          projectLabel,
         },
       }
     })
 
     return [...groupNodes, ...sessionNodes]
-  }, [groupNodes, highlightedSessions, layoutedNodes, selectedSessionId, statusMap])
+  }, [
+    groupNodes,
+    highlightedSessions,
+    layoutedNodes,
+    mostRecentSessionId,
+    referenceTime,
+    resolveProjectLabel,
+    selectedSessionId,
+  ])
 
   const edges = useMemo(() => {
+    // Use peek() for status lookup - edge animation isn't critical for reactivity
+    const statusSnapshot = state$.data.sessionStatus.peek() ?? {}
+
     return layoutedEdges.map((edge) => {
-      const status = getStatusType(statusMap[edge.target])
+      const status = getStatusType(statusSnapshot[edge.target])
       const isHighlighted =
         highlightedSessions.has(edge.source) && highlightedSessions.has(edge.target)
 
@@ -423,7 +543,7 @@ export function useSessionGraph() {
         },
       }
     })
-  }, [highlightedSessions, layoutedEdges, statusMap])
+  }, [highlightedSessions, layoutedEdges, state$])
 
   return {
     nodes,
@@ -434,6 +554,7 @@ export function useSessionGraph() {
     filterHours,
     setFilterHours,
     selectedSessionId,
+    mostRecentSessionId,
     selectSession,
     moveSelection,
     clearSelection,

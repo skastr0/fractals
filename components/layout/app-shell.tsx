@@ -1,20 +1,19 @@
 'use client'
 
-import { observer, useSelector } from '@legendapp/state/react'
+import { use$ } from '@legendapp/state/react'
 import { useState } from 'react'
 
 import { SessionGraph } from '@/components/graph'
 import { PaneContainer } from '@/components/panes'
 import { usePanes } from '@/context/PanesProvider'
 
-import { CommandBar } from './command-bar'
 import { Header } from './header'
 import { StatusBar } from './status-bar'
 
-export const AppShell = observer(function AppShell() {
+export function AppShell() {
   const panes$ = usePanes()
-  const panes = useSelector(() => panes$.panes.get())
-  const totalWidth = useSelector(() => panes$.getTotalPaneWidthPercentage())
+  const panes = use$(() => panes$.panes.get())
+  const totalWidth = use$(() => panes$.getTotalPaneWidthPercentage())
   const [isWorkspaceMaximized, setIsWorkspaceMaximized] = useState(false)
 
   const hasPanes = panes.length > 0
@@ -57,11 +56,9 @@ export const AppShell = observer(function AppShell() {
             <PaneContainer widthOverride={workspaceWidth} />
           </div>
         ) : null}
-
-        <CommandBar mode={hasPanes ? 'left' : 'center'} />
       </main>
 
       <StatusBar />
     </div>
   )
-})
+}

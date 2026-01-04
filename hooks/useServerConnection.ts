@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { checkServerHealth, DEFAULT_SERVER_URL, type ServerHealth } from '@/lib/opencode'
 
-const DEFAULT_SERVER_URLS = [DEFAULT_SERVER_URL, 'http://localhost:5578']
+const DEFAULT_SERVER_URLS = [
+  DEFAULT_SERVER_URL, // SDK default (4096)
+  'http://localhost:5577', // Legacy default
+  'http://localhost:5578',
+]
 const STORAGE_KEYS = {
   lastUrl: 'opencode-server-url',
   knownServers: 'opencode-known-servers',

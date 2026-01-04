@@ -2,11 +2,13 @@
 
 import type { Node } from '@xyflow/react'
 import { Background, PanOnScrollMode, ReactFlow, useReactFlow } from '@xyflow/react'
+import { Zap } from 'lucide-react'
 import type { MouseEvent } from 'react'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import '@xyflow/react/dist/style.css'
 
 import { SessionPane } from '@/components/panes/session-pane'
+import { Button } from '@/components/ui/button'
 import { useFocusManager } from '@/context/FocusManagerProvider'
 import { usePanes } from '@/context/PanesProvider'
 import { useSessionGraph } from '@/hooks/useSessionGraph'
@@ -21,10 +23,38 @@ const nodeTypes = {
 }
 
 export function SessionGraph() {
-  const { nodes, edges, selectSession, moveSelection, clearSelection } = useSessionGraph()
+  const { nodes, edges, selectSession, moveSelection, clearSelection, mostRecentSessionId } =
+    useSessionGraph()
   const panes$ = usePanes()
   const { isGraphFocused } = useFocusManager()
-  const { fitView } = useReactFlow()
+  const { fitView, setCenter, getZoom } = useReactFlow()
+
+  // Find the most recent node's position for focusing
+  const mostRecentNode = useMemo(() => {
+    if (!mostRecentSessionId) {
+      return null
+    }
+    return nodes.find(
+      (node) =>
+        node.type === 'session' &&
+        (node.data as SessionNodeData).sessionKey === mostRecentSessionId,
+    )
+  }, [mostRecentSessionId, nodes])
+
+  const focusMostRecent = useCallback(() => {
+    if (!mostRecentNode) {
+      return
+    }
+
+    const nodeWidth = 280
+    const nodeHeight = 96
+    const x = mostRecentNode.position.x + nodeWidth / 2
+    const y = mostRecentNode.position.y + nodeHeight / 2
+    const zoom = Math.max(getZoom(), 1)
+
+    setCenter(x, y, { zoom, duration: 400 })
+    selectSession(mostRecentSessionId!)
+  }, [mostRecentNode, mostRecentSessionId, getZoom, setCenter, selectSession])
 
   const handleNodeClick = useCallback(
     (_event: MouseEvent, node: Node<SessionNodeData | SubagentGroupData>) => {
@@ -33,12 +63,12 @@ export function SessionGraph() {
       }
 
       const data = node.data as SessionNodeData
-      const sessionId = data.sessionId
+      const sessionKey = data.sessionKey
       const title = data.title?.trim() || 'Session'
 
-      selectSession(sessionId)
+      selectSession(sessionKey)
 
-      const paneContent = <SessionPane sessionId={sessionId} />
+      const paneContent = <SessionPane sessionKey={sessionKey} />
       const hasSessionPane = panes$.panes.get().some((pane) => pane.id === 'session')
 
       if (hasSessionPane) {
@@ -115,7 +145,7 @@ export function SessionGraph() {
   }, [fitView, nodes.length])
 
   return (
-    <div className="h-full w-full bg-background" data-focus-area="graph">
+    <div className="relative h-full w-full bg-background" data-focus-area="graph">
       <ReactFlow<Node<SessionNodeData | SubagentGroupData>>
         nodes={nodes}
         edges={edges}
@@ -142,6 +172,22 @@ export function SessionGraph() {
       >
         <Background color="hsl(var(--border))" gap={20} size={1} />
       </ReactFlow>
+
+      {/* Jump to most recent session button */}
+      {mostRecentNode && (
+        <div className="absolute bottom-4 right-4 z-10">
+          <Button
+            variant="outline"
+            size="sm"
+            onPress={focusMostRecent}
+            className="gap-1.5 border-cyan-500/50 bg-background/95 text-cyan-400 shadow-lg backdrop-blur-sm hover:border-cyan-400 hover:bg-cyan-950/20"
+            aria-label="Jump to most recent session"
+          >
+            <Zap className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">Latest</span>
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

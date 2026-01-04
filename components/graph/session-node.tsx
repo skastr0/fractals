@@ -1,15 +1,18 @@
 'use client'
 
+import { use$ } from '@legendapp/state/react'
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react'
-import { Minus, Plus } from 'lucide-react'
+import { Minus, Plus, Zap } from 'lucide-react'
 import { memo } from 'react'
 import { tv } from 'tailwind-variants'
 
 import { StatusDot } from '@/components/ui/status-dot'
+import { useSync } from '@/context/SyncProvider'
 import { getDepthAccentColor } from '@/lib/graph/depth-styles'
+import type { SessionStatus as SDKSessionStatus } from '@/lib/opencode'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/utils/date'
-import type { SessionNodeData } from '@/types'
+import type { SessionNodeData, SessionStatus } from '@/types'
 
 type SessionFlowNode = Node<SessionNodeData, 'session'>
 
@@ -36,12 +39,26 @@ const nodeVariants = tv({
       retry: 'border-yellow-500 ring-1 ring-yellow-500/30',
       pending_permission: 'border-red-500 ring-1 ring-red-500/30',
     },
+    mostRecent: {
+      true: [
+        'border-cyan-400/80 ring-2 ring-cyan-400/40',
+        'shadow-lg shadow-cyan-500/25',
+        'bg-gradient-to-br from-background/95 to-cyan-950/10',
+      ],
+      false: '',
+    },
+    stale: {
+      true: 'opacity-60',
+      false: '',
+    },
   },
   defaultVariants: {
     selected: false,
     highlighted: false,
     subagent: false,
     status: 'idle',
+    mostRecent: false,
+    stale: false,
   },
 })
 
@@ -51,13 +68,25 @@ export const SessionNode = memo(function SessionNode({
   data,
   selected,
 }: NodeProps<SessionFlowNode>) {
+  // V3: Subscribe to THIS session's status only - granular subscription
+  // This prevents the entire graph from re-rendering when any session's status changes
+  const { state$ } = useSync()
+  const liveStatus = use$(state$.data.sessionStatus[data.sessionKey]) as
+    | SDKSessionStatus
+    | undefined
+  // SDK status is { type: 'idle' | 'busy' | ... }, local status is string
+  const status: SessionStatus = liveStatus?.type ?? data.status ?? 'idle'
+
   const isSelected = data.isSelected || selected
   const isHighlighted = Boolean(data.isHighlighted)
+  const isMostRecent = Boolean(data.isMostRecent)
+  const isStale = Boolean(data.isStale) && !isMostRecent
   const childCount = data.childCount ?? 0
   const hasChildren = childCount > 0
   const isCollapsed = Boolean(data.isCollapsed)
   const title = data.title?.trim() ? data.title : 'Untitled Session'
   const timeLabel = formatRelativeTime(data.updatedAt)
+  const projectLabel = data.projectLabel?.trim()
   const depthAccent = getDepthAccentColor(data.depth)
 
   return (
@@ -66,7 +95,9 @@ export const SessionNode = memo(function SessionNode({
         selected: isSelected,
         highlighted: isHighlighted && !isSelected,
         subagent: data.isSubagent,
-        status: data.status,
+        status,
+        mostRecent: isMostRecent && !isSelected,
+        stale: isStale && !isSelected && !isHighlighted,
       })}
       style={data.isSubagent ? { borderLeftColor: depthAccent } : undefined}
     >
@@ -79,9 +110,22 @@ export const SessionNode = memo(function SessionNode({
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
             <span>{timeLabel}</span>
           </div>
+          {projectLabel ? (
+            <div className="mt-1 truncate text-[11px] text-muted-foreground" title={projectLabel}>
+              {projectLabel}
+            </div>
+          ) : null}
         </div>
-        <div className="flex items-center gap-1">
-          <StatusDot status={data.status} size="sm" />
+        <div className="flex items-center gap-1.5">
+          {isMostRecent && (
+            <span
+              className="flex items-center justify-center rounded bg-cyan-500/20 p-1 text-cyan-400"
+              title="Most recently updated session"
+            >
+              <Zap className="h-3.5 w-3.5" />
+            </span>
+          )}
+          <StatusDot status={status} size="sm" />
         </div>
       </div>
       {hasChildren ? (

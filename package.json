@@ -14,11 +14,13 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
-    "@legendapp/state": "^2.1.15",
+    "@legendapp/state": "^3.0.0-beta.42",
     "@opencode-ai/sdk": "^1.0.221",
+    "@tanstack/react-virtual": "^3.13.16",
     "@xyflow/react": "^12.10.0",
     "clsx": "^2.1.1",
     "elkjs": "^0.11.0",
+    "fuzzysort": "^3.1.0",
     "lucide-react": "^0.562.0",
     "next": "^16.1.1",
     "react": "^19.2.3",

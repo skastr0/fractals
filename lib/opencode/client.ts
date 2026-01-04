@@ -9,6 +9,7 @@ export type {
   AssistantMessage,
   Config,
   Event,
+  GlobalEvent,
   Message,
   OpencodeClient,
   Part,
@@ -22,7 +23,7 @@ export type {
   UserMessage,
 } from '@opencode-ai/sdk/v2/client'
 
-export const DEFAULT_SERVER_URL = 'http://localhost:5577'
+export const DEFAULT_SERVER_URL = 'http://localhost:4096'
 
 export type OpenCodeClientConfig = OpencodeClientConfig & {
   directory?: string

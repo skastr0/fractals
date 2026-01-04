@@ -23,13 +23,16 @@ export type PaneId =
  * Session node data for ReactFlow
  */
 export interface SessionNodeData extends Record<string, unknown> {
-  sessionId: string
+  sessionKey: string
   title: string
+  projectLabel: string
   status: SessionStatus
   depth: number
   isSubagent: boolean
   isSelected: boolean
   isHighlighted?: boolean
+  isMostRecent?: boolean
+  isStale?: boolean
   updatedAt: number
   childCount?: number
   isCollapsed?: boolean
