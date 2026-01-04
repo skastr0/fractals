@@ -4,7 +4,9 @@ import type { Edge, Node } from '@xyflow/react'
 import ELK from 'elkjs/lib/elk.bundled.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { useSessionFilter } from '@/context/SessionFilterProvider'
 import { useSync } from '@/context/SyncProvider'
+import { filterSessionsByHours } from '@/lib/graph/session-filter'
 import {
   buildSessionTree,
   findPathToSession,
@@ -23,8 +25,9 @@ const NODE_HEIGHT = 96
 const LAYOUT_OPTIONS = {
   'elk.algorithm': 'layered',
   'elk.direction': 'RIGHT',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '80',
-  'elk.spacing.nodeNode': '40',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '120',
+  'elk.spacing.nodeNode': '60',
+  'elk.layered.crossingMinimization.semiInteractive': 'true',
 } as const
 
 type SessionFlowNode = Node<SessionNodeData, 'session'>
@@ -148,6 +151,7 @@ const buildGroupNodes = (
 export function useSessionGraph() {
   const { sessions } = useSessions()
   const sync = useSync()
+  const { filterHours, setFilterHours } = useSessionFilter()
   const elk = useMemo(() => new ELK(), [])
   const treeIndexRef = useRef<Map<string, SessionTreeNode>>(new Map())
   const [layoutedNodes, setLayoutedNodes] = useState<SessionFlowNode[]>([])
@@ -177,8 +181,16 @@ export function useSessionGraph() {
     })
   }, [])
 
+  const filteredSessions = useMemo(
+    () => filterSessionsByHours(sessions, filterHours),
+    [filterHours, sessions],
+  )
+
+  const _sessionCount = sessions.length
+  const _filteredSessionCount = filteredSessions.length
+
   const treeResult = useMemo(() => {
-    const result = buildSessionTree(sessions, {
+    const result = buildSessionTree(filteredSessions, {
       previousIndex: treeIndexRef.current,
       reuseNodes: true,
       onCircularReference: (path, sessionId) => {
@@ -188,7 +200,7 @@ export function useSessionGraph() {
 
     treeIndexRef.current = result.index
     return result
-  }, [sessions])
+  }, [filteredSessions])
 
   const tree = treeResult.tree
   const treeStats = useMemo(() => getTreeStats(tree), [tree])
@@ -223,7 +235,10 @@ export function useSessionGraph() {
     })
   }, [childCounts, collapsedSessions, displayTree, toggleCollapse])
 
-  const sessionIdSet = useMemo(() => new Set(sessions.map((session) => session.id)), [sessions])
+  const sessionIdSet = useMemo(
+    () => new Set(filteredSessions.map((session) => session.id)),
+    [filteredSessions],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -414,6 +429,10 @@ export function useSessionGraph() {
     nodes,
     edges,
     stats: treeStats,
+    sessionCount: _sessionCount,
+    filteredSessionCount: _filteredSessionCount,
+    filterHours,
+    setFilterHours,
     selectedSessionId,
     selectSession,
     moveSelection,

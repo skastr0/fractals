@@ -15,7 +15,7 @@ export const SubagentGroup = memo(function SubagentGroup({ data }: NodeProps<Sub
   return (
     <div
       className="pointer-events-none h-full w-full rounded-xl border border-dashed"
-      style={{ borderColor, backgroundColor }}
+      style={{ borderColor, backgroundColor, opacity: 0.3 }}
     />
   )
 })

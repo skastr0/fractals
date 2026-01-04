@@ -1,7 +1,7 @@
 'use client'
 
 import type { Node } from '@xyflow/react'
-import { Background, Controls, PanOnScrollMode, ReactFlow, useReactFlow } from '@xyflow/react'
+import { Background, PanOnScrollMode, ReactFlow, useReactFlow } from '@xyflow/react'
 import type { MouseEvent } from 'react'
 import { useCallback, useEffect } from 'react'
 import '@xyflow/react/dist/style.css'
@@ -141,7 +141,6 @@ export function SessionGraph() {
         proOptions={{ hideAttribution: true }}
       >
         <Background color="hsl(var(--border))" gap={20} size={1} />
-        <Controls className="!bg-background !border-border" />
       </ReactFlow>
     </div>
   )

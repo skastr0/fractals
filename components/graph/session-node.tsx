@@ -1,12 +1,13 @@
 'use client'
 
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react'
-import { ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 import { memo } from 'react'
 import { tv } from 'tailwind-variants'
 
 import { StatusDot } from '@/components/ui/status-dot'
 import { getDepthAccentColor } from '@/lib/graph/depth-styles'
+import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/utils/date'
 import type { SessionNodeData } from '@/types'
 
@@ -15,7 +16,7 @@ type SessionFlowNode = Node<SessionNodeData, 'session'>
 const nodeVariants = tv({
   base: [
     'relative w-[280px] rounded-lg border bg-background/90 px-4 py-3',
-    'shadow-sm backdrop-blur-sm transition-colors',
+    'shadow-sm backdrop-blur-sm transition-all duration-300',
   ],
   variants: {
     selected: {
@@ -31,9 +32,9 @@ const nodeVariants = tv({
     },
     status: {
       idle: '',
-      busy: 'border-primary/60',
-      retry: 'border-warning/60',
-      pending_permission: 'border-error/60',
+      busy: 'border-green-500 ring-2 ring-green-500/50 shadow-lg shadow-green-500/20',
+      retry: 'border-yellow-500 ring-1 ring-yellow-500/30',
+      pending_permission: 'border-red-500 ring-1 ring-red-500/30',
     },
   },
   defaultVariants: {
@@ -52,7 +53,8 @@ export const SessionNode = memo(function SessionNode({
 }: NodeProps<SessionFlowNode>) {
   const isSelected = data.isSelected || selected
   const isHighlighted = Boolean(data.isHighlighted)
-  const hasChildren = (data.childCount ?? 0) > 0
+  const childCount = data.childCount ?? 0
+  const hasChildren = childCount > 0
   const isCollapsed = Boolean(data.isCollapsed)
   const title = data.title?.trim() ? data.title : 'Untitled Session'
   const timeLabel = formatRelativeTime(data.updatedAt)
@@ -76,11 +78,6 @@ export const SessionNode = memo(function SessionNode({
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
             <span>{timeLabel}</span>
-            {data.isSubagent ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-secondary/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-secondary-foreground">
-                Subagent depth {data.depth}
-              </span>
-            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -94,13 +91,21 @@ export const SessionNode = memo(function SessionNode({
             event.stopPropagation()
             data.onToggleCollapse?.()
           }}
-          aria-label={isCollapsed ? 'Expand subagents' : 'Collapse subagents'}
+          aria-label={
+            isCollapsed
+              ? `Show ${childCount} subagent${childCount === 1 ? '' : 's'}`
+              : 'Hide subagents'
+          }
           aria-expanded={!isCollapsed}
-          className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm transition hover:bg-background"
+          className={cn(
+            'absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium shadow-sm transition',
+            isCollapsed
+              ? 'border-primary/50 bg-primary/10 text-primary hover:bg-primary/15'
+              : 'border-border/60 bg-background/90 text-muted-foreground hover:bg-background',
+          )}
         >
-          {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          <Users className="h-3 w-3" />
-          <span>{data.childCount}</span>
+          {isCollapsed ? <Plus className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+          <span>{childCount}</span>
         </button>
       ) : null}
       <Handle type="source" position={Position.Right} className={handleClass} />

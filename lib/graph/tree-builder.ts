@@ -28,8 +28,8 @@ export interface BuildSessionTreeResult {
 
 const ROOT_KEY = '__root__'
 
-const getCreatedAt = (session: Session): number => {
-  return session.time?.created ?? session.time?.updated ?? 0
+const getUpdatedAt = (session: Session): number => {
+  return session.time?.updated ?? session.time?.created ?? 0
 }
 
 const resolveDepth = (session: Session, parentDepth: number): number => {
@@ -104,7 +104,7 @@ export function buildSessionTree(
   }
 
   for (const list of childrenMap.values()) {
-    list.sort((a, b) => getCreatedAt(a) - getCreatedAt(b))
+    list.sort((a, b) => getUpdatedAt(b) - getUpdatedAt(a))
   }
 
   const index = new Map<string, SessionTreeNode>()
