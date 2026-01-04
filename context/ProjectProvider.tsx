@@ -7,6 +7,19 @@ import { useOpenCode } from './OpenCodeProvider'
 
 const LAST_PROJECT_KEY = 'opencode-last-project'
 
+const EXCLUDE_PATTERNS = [
+  /^\/private\/var/i,
+  /^\/var\/folders/i,
+  /^\/tmp\//i,
+  /\/node_modules\//i,
+  /^C:\\Windows/i,
+  /^C:\\Users\\[^\\]+\\AppData\\Local\\Temp/i,
+]
+
+const isJunkProject = (worktree: string): boolean => {
+  return EXCLUDE_PATTERNS.some((pattern) => pattern.test(worktree))
+}
+
 const readStoredProjectId = (): string | null => {
   if (typeof window === 'undefined') {
     return null
@@ -60,7 +73,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     state$.isLoading.set(true)
     try {
       const result = await client.project.list()
-      const projects = (result.data ?? []).slice().sort((a, b) => b.time.updated - a.time.updated)
+      const allProjects = result.data ?? []
+      const filteredProjects = allProjects.filter((project) => !isJunkProject(project.worktree))
+      const projects = filteredProjects.slice().sort((a, b) => b.time.updated - a.time.updated)
       state$.projects.set(projects)
 
       const current = state$.currentProject.peek()

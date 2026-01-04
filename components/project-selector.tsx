@@ -1,12 +1,11 @@
 'use client'
 
-import { FolderOpen, Plus } from 'lucide-react'
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FolderOpen, Plus, Search } from 'lucide-react'
+import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Select, SelectItem } from '@/components/ui/select'
 import { useOpenCode } from '@/context/OpenCodeProvider'
 import { useProject } from '@/context/ProjectProvider'
 import type { Project } from '@/lib/opencode'
@@ -22,6 +21,28 @@ const formatProjectName = (project: Project): string =>
 const formatProjectPath = (project: Project): string =>
   project.worktree.replace(/^\/Users\/[^/]+/, '~').replace(/^C:\\Users\\[^\\]+/i, '~')
 
+const normalizeSearchValue = (value: string): string => value.toLowerCase().replace(/\s+/g, '')
+
+const fuzzyMatch = (query: string, text: string): boolean => {
+  const normalizedQuery = normalizeSearchValue(query.trim())
+  if (!normalizedQuery) {
+    return true
+  }
+  const normalizedText = normalizeSearchValue(text)
+  if (normalizedText.includes(normalizedQuery)) {
+    return true
+  }
+  let lastIndex = -1
+  for (const char of normalizedQuery) {
+    const index = normalizedText.indexOf(char, lastIndex + 1)
+    if (index === -1) {
+      return false
+    }
+    lastIndex = index
+  }
+  return true
+}
+
 export function ProjectSelector() {
   const { client } = useOpenCode()
   const { projects, currentProject, isLoading, selectProject, refreshProjects } = useProject()
@@ -29,6 +50,10 @@ export function ProjectSelector() {
   const [customPath, setCustomPath] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -40,9 +65,65 @@ export function ProjectSelector() {
     fileInputRef.current.setAttribute('directory', '')
   }, [isDialogOpen])
 
-  const placeholder = isLoading ? 'Loading projects...' : 'Select project'
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!containerRef.current || containerRef.current.contains(event.target as Node)) {
+        return
+      }
+      setIsOpen(false)
+      setSearchTerm('')
+    }
 
-  const projectItems = useMemo(() => projects, [projects])
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const placeholder = isLoading
+    ? 'Loading projects...'
+    : isOpen
+      ? 'Search projects...'
+      : 'Select project'
+
+  const filteredProjects = useMemo<Project[]>(() => {
+    const query = searchTerm.trim()
+    if (!query) {
+      return projects
+    }
+
+    return projects.filter((project) => {
+      const name = formatProjectName(project)
+      const path = project.worktree
+      return fuzzyMatch(query, name) || fuzzyMatch(query, path)
+    })
+  }, [projects, searchTerm])
+
+  const displayValue = isOpen ? searchTerm : currentProject ? formatProjectName(currentProject) : ''
+
+  const handleSelect = (project: Project) => {
+    void selectProject(project.id)
+    setIsOpen(false)
+    setSearchTerm('')
+  }
+
+  const handleInputFocus = () => {
+    setIsOpen(true)
+    setSearchTerm('')
+  }
+
+  const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value)
+    if (!isOpen) {
+      setIsOpen(true)
+    }
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      setIsOpen(false)
+      setSearchTerm('')
+      inputRef.current?.blur()
+    }
+  }
 
   const handleAddProject = async () => {
     const path = customPath.trim()
@@ -94,47 +175,74 @@ export function ProjectSelector() {
 
   return (
     <div className="flex items-center gap-2">
-      <Select
-        aria-label="Project"
-        items={projectItems}
-        className="w-[260px]"
-        placeholder={placeholder}
-        selectedKey={currentProject?.id}
-        isDisabled={isLoading || projectItems.length === 0}
-        onSelectionChange={(key) => {
-          if (!key) {
-            return
-          }
-          void selectProject(String(key))
-        }}
-      >
-        {(project) => (
-          <SelectItem id={project.id} textValue={formatProjectName(project)}>
-            <div className="flex items-center gap-2">
-              {project.icon?.url ? (
-                <span
-                  className="h-4 w-4 rounded bg-cover bg-center"
-                  style={{ backgroundImage: `url(${project.icon.url})` }}
-                  aria-hidden="true"
-                />
-              ) : (
-                <FolderOpen
-                  className="h-4 w-4"
-                  style={{ color: project.icon?.color ?? 'currentColor' }}
-                />
-              )}
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium text-foreground">
-                  {formatProjectName(project)}
-                </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {formatProjectPath(project)}
-                </span>
-              </div>
-            </div>
-          </SelectItem>
-        )}
-      </Select>
+      <div ref={containerRef} className="relative w-[260px]">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          ref={inputRef}
+          type="text"
+          role="combobox"
+          aria-label="Project"
+          aria-expanded={isOpen}
+          aria-controls="project-selector-listbox"
+          aria-autocomplete="list"
+          value={displayValue}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={isLoading}
+          className="h-8 w-full rounded-md border border-border bg-background py-1.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+        />
+        {isOpen && filteredProjects.length > 0 ? (
+          <div
+            id="project-selector-listbox"
+            role="listbox"
+            className="absolute top-full z-50 mt-1 max-h-[300px] w-full overflow-auto rounded-lg border border-border bg-background shadow-lg"
+          >
+            {filteredProjects.map((project) => {
+              const isSelected = currentProject?.id === project.id
+              return (
+                <button
+                  key={project.id}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => handleSelect(project)}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-secondary/50 ${
+                    isSelected ? 'bg-primary/10' : ''
+                  }`}
+                >
+                  {project.icon?.url ? (
+                    <span
+                      className="h-4 w-4 flex-shrink-0 rounded bg-cover bg-center"
+                      style={{ backgroundImage: `url(${project.icon.url})` }}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <FolderOpen
+                      className="h-4 w-4 flex-shrink-0"
+                      style={{ color: project.icon?.color ?? 'currentColor' }}
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-foreground">
+                      {formatProjectName(project)}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {formatProjectPath(project)}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+        {isOpen && filteredProjects.length === 0 && searchTerm.trim().length > 0 ? (
+          <div className="absolute top-full z-50 mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground shadow-lg">
+            No projects found.
+          </div>
+        ) : null}
+      </div>
 
       <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <Button
