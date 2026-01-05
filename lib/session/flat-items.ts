@@ -50,6 +50,18 @@ const getPartEndTime = (part: Part): number | undefined => {
   return (part as PartWithTime).time?.end
 }
 
+// Check if a part should be visible in the message list
+// Filters out parts that would render as empty (no preview content)
+const isPartVisible = (part: Part): boolean => {
+  // Text parts must have non-empty content
+  if (part.type === 'text' && !part.text.trim()) {
+    return false
+  }
+
+  // All other part types are potentially visible
+  return true
+}
+
 export function flattenMessages(options: FlattenOptions): FlatItem[] {
   const { messages, getParts } = options
 
@@ -92,6 +104,9 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
 
     const userParts = getParts(userMessage.id)
     for (const part of userParts) {
+      // Skip parts that would render as empty
+      if (!isPartVisible(part)) continue
+
       turnItems.push({
         id: `part-${userMessage.id}-${part.id}`,
         turnId,
@@ -113,6 +128,9 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
 
       const assistantParts = getParts(assistantMessage.id)
       for (const part of assistantParts) {
+        // Skip parts that would render as empty
+        if (!isPartVisible(part)) continue
+
         turnItems.push({
           id: `part-${assistantMessage.id}-${part.id}`,
           turnId,
