@@ -93,53 +93,66 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
 
   for (const userMessage of userMessages) {
     const turnId = userMessage.id
-    const turnItems: TurnItem[] = [
-      {
+    const turnItems: TurnItem[] = []
+
+    // Collect user parts first
+    const userParts = getParts(userMessage.id)
+    const visibleUserParts = userParts.filter(isPartVisible)
+
+    // Only add UserMessageItem if there are visible parts
+    if (visibleUserParts.length > 0) {
+      turnItems.push({
         id: `user-message-${userMessage.id}`,
         turnId,
         type: 'user-message',
         message: userMessage,
-      },
-    ]
-
-    const userParts = getParts(userMessage.id)
-    for (const part of userParts) {
-      // Skip parts that would render as empty
-      if (!isPartVisible(part)) continue
-
-      turnItems.push({
-        id: `part-${userMessage.id}-${part.id}`,
-        turnId,
-        type: 'part',
-        part,
-        isAssistant: false,
-        isStreaming: !getPartEndTime(part),
-      })
-    }
-
-    const assistantMessages = assistantByParent.get(userMessage.id) ?? []
-    for (const assistantMessage of assistantMessages) {
-      turnItems.push({
-        id: `assistant-header-${assistantMessage.id}`,
-        turnId,
-        type: 'assistant-header',
-        message: assistantMessage,
       })
 
-      const assistantParts = getParts(assistantMessage.id)
-      for (const part of assistantParts) {
-        // Skip parts that would render as empty
-        if (!isPartVisible(part)) continue
-
+      // Add user parts
+      for (const part of visibleUserParts) {
         turnItems.push({
-          id: `part-${assistantMessage.id}-${part.id}`,
+          id: `part-${userMessage.id}-${part.id}`,
           turnId,
           type: 'part',
           part,
-          isAssistant: true,
+          isAssistant: false,
           isStreaming: !getPartEndTime(part),
         })
       }
+    }
+
+    // Collect and add assistant parts
+    const assistantMessages = assistantByParent.get(userMessage.id) ?? []
+    for (const assistantMessage of assistantMessages) {
+      const assistantParts = getParts(assistantMessage.id)
+      const visibleAssistantParts = assistantParts.filter(isPartVisible)
+
+      // Only add AssistantHeaderItem if there are visible parts
+      if (visibleAssistantParts.length > 0) {
+        turnItems.push({
+          id: `assistant-header-${assistantMessage.id}`,
+          turnId,
+          type: 'assistant-header',
+          message: assistantMessage,
+        })
+
+        // Add assistant parts
+        for (const part of visibleAssistantParts) {
+          turnItems.push({
+            id: `part-${assistantMessage.id}-${part.id}`,
+            turnId,
+            type: 'part',
+            part,
+            isAssistant: true,
+            isStreaming: !getPartEndTime(part),
+          })
+        }
+      }
+    }
+
+    // Skip turns with no visible items
+    if (turnItems.length === 0) {
+      continue
     }
 
     for (let i = 0; i < turnItems.length; i += 1) {
