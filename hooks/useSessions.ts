@@ -1,5 +1,6 @@
 'use client'
 
+import type { Observable } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { useCallback, useMemo } from 'react'
 import { useProject } from '@/context/ProjectProvider'
@@ -8,16 +9,21 @@ import type { Session } from '@/lib/opencode'
 import { sessionService } from '@/lib/opencode/sessions'
 import { parseSessionKey } from '@/lib/utils/session-key'
 
+export type SessionSubscription = 'structure' | 'list'
+
 export interface UseSessionsOptions {
   parentId?: string
   depth?: number
   includeArchived?: boolean
+  subscription?: SessionSubscription
 }
 
 type SessionWithDepth = Session & {
   depth?: number
   sessionKey: string
 }
+
+type SessionObservable = Observable<SessionWithDepth>
 
 const getDepth = (session: SessionWithDepth) => session.depth ?? 0
 
@@ -53,17 +59,54 @@ export function useSessions(options?: UseSessionsOptions) {
     [selectedDirectories],
   )
 
-  // Subscribe directly to sessions for reactivity
-  const sessionsRecord = use$(() => state$.data.sessions.get())
+  const subscription = options?.subscription ?? 'list'
 
-  // Transform to array with sessionKey
+  // Subscribe only to the fields we need (avoid global record subscriptions)
+  const sessionSlices = use$(() => {
+    const keys = Object.keys(state$.data.sessions as unknown as Record<string, unknown>)
+    return keys.map((sessionKey) => {
+      const session$ = state$.data.sessions[sessionKey] as SessionObservable
+      const parentID = session$.parentID.get()
+      const depth = session$.depth.get()
+      const archived = session$.time.archived.get()
+      const directory = session$.directory.get()
+
+      if (subscription === 'structure') {
+        return { sessionKey, parentID, depth, archived, directory }
+      }
+
+      const updated = session$.time.updated.get()
+      const created = session$.time.created.get()
+      const title = session$.title.get()
+
+      return {
+        sessionKey,
+        parentID,
+        depth,
+        archived,
+        directory,
+        updated,
+        created,
+        title,
+      }
+    })
+  })
+
+  // Transform to array with sessionKey (peek avoids global subscription)
   const allSessions = useMemo((): SessionWithDepth[] => {
-    if (!sessionsRecord) return []
-    return Object.entries(sessionsRecord).map(([sessionKey, session]) => ({
-      ...session,
-      sessionKey,
-    })) as SessionWithDepth[]
-  }, [sessionsRecord])
+    if (sessionSlices.length === 0) return []
+    const sessionsRecord = state$.data.sessions.peek() ?? {}
+    return sessionSlices
+      .map(({ sessionKey }) => {
+        const session = sessionsRecord[sessionKey]
+        if (!session) return null
+        return {
+          ...session,
+          sessionKey,
+        }
+      })
+      .filter(Boolean) as SessionWithDepth[]
+  }, [sessionSlices, state$])
 
   const parentSessionId = useMemo(() => {
     if (options?.parentId === undefined) {

@@ -8,62 +8,14 @@ import { Button } from '@/components/ui/button'
 import { useSync } from '@/context/SyncProvider'
 import { useSession } from '@/hooks/useSession'
 import { useSessions } from '@/hooks/useSessions'
-import type { AssistantMessage, Message, Part, UserMessage } from '@/lib/opencode'
+import { type FlatItem, flattenMessages } from '@/lib/session/flat-items'
 
-import { MessageTurn, type TurnData } from './message-turn'
+import { FlatItemRenderer } from './flat-item-renderer'
 import { ScrollToBottom } from './scroll-to-bottom'
-
-// Memoized single turn component to prevent re-computation
-const VirtualizedTurn = memo(function VirtualizedTurn({
-  userMessage,
-  assistantMessages,
-  getParts,
-  sessionKey,
-  forkCount,
-  isActive,
-  onSelect,
-}: {
-  userMessage: UserMessage
-  assistantMessages: AssistantMessage[]
-  getParts: (messageId: string) => Part[]
-  sessionKey: string
-  forkCount: number
-  isActive: boolean
-  onSelect: () => void
-}) {
-  // TurnData computed once per message, only re-computed when deps change
-  const turnData = useMemo<TurnData>(() => {
-    const userParts = getParts(userMessage.id)
-    const assistantParts: Part[] = []
-    for (const msg of assistantMessages) {
-      assistantParts.push(...getParts(msg.id))
-    }
-    return {
-      userMessage,
-      userParts,
-      assistantMessages,
-      assistantParts,
-    }
-  }, [userMessage, assistantMessages, getParts])
-
-  return (
-    <MessageTurn
-      sessionKey={sessionKey}
-      turnData={turnData}
-      forkCount={forkCount}
-      isActive={isActive}
-      onSelect={onSelect}
-    />
-  )
-})
 
 interface MessageListProps {
   sessionKey: string
 }
-
-const isUserMessage = (message: Message): message is UserMessage => message.role === 'user'
-const isAssistantMessage = (message: Message): message is AssistantMessage =>
-  message.role === 'assistant'
 
 export const MessageList = memo(function MessageList({ sessionKey }: MessageListProps) {
   const { messages, status, isWorking, getParts } = useSession(sessionKey)
@@ -71,10 +23,39 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
   const { state$ } = useSync()
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const prevStreamingIdsRef = useRef<Set<string>>(new Set())
 
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isPinned, setIsPinned] = useState(true)
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [activeUserMessageId, setActiveUserMessageId] = useState<string | null>(null)
+
+  // Track expanded items by ID - defaults to collapsed (empty set)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  // Toggle expansion for an item
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  // Check if an item is expanded (streaming items are always expanded)
+  const isExpanded = useCallback(
+    (item: FlatItem) => {
+      // Streaming items are always expanded (AC-1)
+      if (item.type === 'part' && item.isStreaming) {
+        return true
+      }
+      return expandedIds.has(item.id)
+    },
+    [expandedIds],
+  )
 
   // Memoize sorted messages once
   const sortedMessages = useMemo(
@@ -82,31 +63,48 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
     [messages],
   )
 
-  // Fast O(n) categorization - only groups messages, NO getParts() calls
-  const { userMessages, assistantByParent, forkCounts } = useMemo(() => {
-    const users: UserMessage[] = []
-    const byParent = new Map<string, AssistantMessage[]>()
+  // Flatten messages to individual items for per-item virtualization
+  const flatItems = useMemo(
+    () => flattenMessages({ messages: sortedMessages, getParts }),
+    [sortedMessages, getParts],
+  )
 
-    // Single pass to categorize messages
-    for (const message of sortedMessages) {
-      if (isUserMessage(message)) {
-        users.push(message)
-      } else if (isAssistantMessage(message) && message.parentID) {
-        const existing = byParent.get(message.parentID) ?? []
-        existing.push(message)
-        byParent.set(message.parentID, existing)
-      }
+  // AC-2: When streaming ends, add item to expandedIds so it stays expanded
+  useEffect(() => {
+    const currentStreamingIds = new Set(
+      flatItems.filter((item) => item.type === 'part' && item.isStreaming).map((item) => item.id),
+    )
+
+    // Find items that WERE streaming but are no longer streaming
+    const endedStreamingIds = [...prevStreamingIdsRef.current].filter(
+      (id) => !currentStreamingIds.has(id),
+    )
+
+    // Add them to expandedIds so they stay expanded
+    if (endedStreamingIds.length > 0) {
+      setExpandedIds((prev) => {
+        const next = new Set(prev)
+        for (const id of endedStreamingIds) {
+          next.add(id)
+        }
+        return next
+      })
     }
 
-    // Sort assistant messages by ID for each parent (maintains order)
-    for (const [parentId, assistants] of byParent) {
-      byParent.set(
-        parentId,
-        assistants.sort((a, b) => a.id.localeCompare(b.id)),
-      )
-    }
+    prevStreamingIdsRef.current = currentStreamingIds
+  }, [flatItems])
 
-    // Compute fork counts using peek() to avoid subscription - only re-compute when childSessions change
+  // Extract user message items for navigation
+  const userMessageItems = useMemo(
+    () =>
+      flatItems.filter(
+        (item): item is Extract<FlatItem, { type: 'user-message' }> => item.type === 'user-message',
+      ),
+    [flatItems],
+  )
+
+  // Compute fork counts - count child sessions that reference each message
+  const forkCounts = useMemo(() => {
     const counts = new Map<string, number>()
     for (const child of childSessions) {
       const allMessages = state$.data.messages.peek()
@@ -115,33 +113,32 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
         counts.set(message.id, (counts.get(message.id) ?? 0) + 1)
       }
     }
+    return counts
+  }, [childSessions, state$])
 
-    return { userMessages: users, assistantByParent: byParent, forkCounts: counts }
-  }, [sortedMessages, childSessions, state$])
-
-  // Virtualizer for efficient rendering of large message lists
-  // Now virtualizing over userMessages directly - TurnData computed lazily
+  // Virtualizer for efficient rendering - now over flat items with smaller estimated size
   const virtualizer = useVirtualizer({
-    count: userMessages.length,
+    count: flatItems.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 200, // Estimated height per turn
+    estimateSize: () => 40, // Collapsed height ~40px (vs 200px for turns)
     measureElement: (el) => el.getBoundingClientRect().height,
-    overscan: 3, // Render 3 extra items above/below viewport
+    overscan: 5, // Render 5 extra items above/below viewport
   })
 
+  // Set initial active user message
   useEffect(() => {
-    if (userMessages.length === 0) {
-      setActiveIndex(null)
+    if (userMessageItems.length === 0) {
+      setActiveUserMessageId(null)
       return
     }
 
-    setActiveIndex((prev) => {
-      if (prev === null) {
-        return userMessages.length - 1
+    setActiveUserMessageId((prev) => {
+      if (prev === null || !userMessageItems.some((item) => item.message.id === prev)) {
+        return userMessageItems[userMessageItems.length - 1]?.message.id ?? null
       }
-      return Math.min(prev, userMessages.length - 1)
+      return prev
     })
-  }, [userMessages.length])
+  }, [userMessageItems])
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const container = scrollRef.current
@@ -157,14 +154,14 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
 
   // Auto-scroll to bottom when pinned and content height changes
   useEffect(() => {
-    if (isPinned && userMessages.length > 0 && totalSize > 0) {
+    if (isPinned && flatItems.length > 0 && totalSize > 0) {
       // Use instant scroll for auto-follow to avoid jank
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
         behavior: 'instant',
       })
     }
-  }, [isPinned, userMessages.length, totalSize])
+  }, [isPinned, flatItems.length, totalSize])
 
   const handleScroll = useCallback(() => {
     const container = scrollRef.current
@@ -179,27 +176,35 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
     setShowScrollButton(!atBottom)
   }, [])
 
+  // Navigate between user messages
   const navigateMessage = useCallback(
     (offset: number) => {
-      if (userMessages.length === 0) {
+      if (userMessageItems.length === 0) {
         return
       }
 
-      setActiveIndex((prev) => {
-        const currentIndex = prev ?? userMessages.length - 1
-        const nextIndex = Math.max(0, Math.min(userMessages.length - 1, currentIndex + offset))
-        const messageId = userMessages[nextIndex]?.id
+      const currentIndex = activeUserMessageId
+        ? userMessageItems.findIndex((item) => item.message.id === activeUserMessageId)
+        : userMessageItems.length - 1
 
-        if (messageId) {
-          const element = document.getElementById(`message-${messageId}`)
-          element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
+      const nextIndex = Math.max(0, Math.min(userMessageItems.length - 1, currentIndex + offset))
+      const nextItem = userMessageItems[nextIndex]
 
-        return nextIndex
-      })
+      if (nextItem) {
+        setActiveUserMessageId(nextItem.message.id)
+        const element = document.getElementById(`message-${nextItem.message.id}`)
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
     },
-    [userMessages],
+    [userMessageItems, activeUserMessageId],
   )
+
+  // Get current navigation index for display
+  const currentNavIndex = useMemo(() => {
+    if (!activeUserMessageId) return userMessageItems.length - 1
+    const index = userMessageItems.findIndex((item) => item.message.id === activeUserMessageId)
+    return index >= 0 ? index : userMessageItems.length - 1
+  }, [activeUserMessageId, userMessageItems])
 
   if (messages.length === 0) {
     return (
@@ -219,25 +224,25 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
         </div>
       ) : null}
 
-      {userMessages.length > 1 ? (
+      {userMessageItems.length > 1 ? (
         <div className="flex flex-shrink-0 items-center justify-center gap-2 border-b border-border py-2">
           <Button
             variant="ghost"
             size="sm"
             onPress={() => navigateMessage(-1)}
-            isDisabled={(activeIndex ?? userMessages.length - 1) === 0}
+            isDisabled={currentNavIndex === 0}
             aria-label="Previous message"
           >
             <ChevronUp className="h-4 w-4" />
           </Button>
           <span className="text-xs text-muted-foreground">
-            {(activeIndex ?? userMessages.length - 1) + 1} / {userMessages.length}
+            {currentNavIndex + 1} / {userMessageItems.length}
           </span>
           <Button
             variant="ghost"
             size="sm"
             onPress={() => navigateMessage(1)}
-            isDisabled={(activeIndex ?? userMessages.length - 1) === userMessages.length - 1}
+            isDisabled={currentNavIndex === userMessageItems.length - 1}
             aria-label="Next message"
           >
             <ChevronDown className="h-4 w-4" />
@@ -271,26 +276,26 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
             }}
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
-              const userMessage = userMessages[virtualRow.index]
-              if (!userMessage) return null
+              const item = flatItems[virtualRow.index]
+              if (!item) return null
 
-              const assistantMsgs = assistantByParent.get(userMessage.id) ?? []
+              // Get fork count for user messages
+              const forkCount =
+                item.type === 'user-message' ? (forkCounts.get(item.message.id) ?? 0) : undefined
+
+              // Check if this is the active user message
+              const isActiveUserMessage =
+                item.type === 'user-message' && item.message.id === activeUserMessageId
 
               return (
-                <div
-                  key={userMessage.id}
-                  data-index={virtualRow.index}
-                  ref={virtualizer.measureElement}
-                  className="p-4"
-                >
-                  <VirtualizedTurn
-                    userMessage={userMessage}
-                    assistantMessages={assistantMsgs}
-                    getParts={getParts}
+                <div key={item.id} data-index={virtualRow.index} ref={virtualizer.measureElement}>
+                  <FlatItemRenderer
+                    item={item}
                     sessionKey={sessionKey}
-                    forkCount={forkCounts.get(userMessage.id) ?? 0}
-                    isActive={activeIndex === virtualRow.index}
-                    onSelect={() => setActiveIndex(virtualRow.index)}
+                    forkCount={forkCount}
+                    isActiveUserMessage={isActiveUserMessage}
+                    isExpanded={isExpanded(item)}
+                    onToggle={() => toggleExpand(item.id)}
                   />
                 </div>
               )

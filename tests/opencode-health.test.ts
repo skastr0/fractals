@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
 
+import { shouldFetchSessionMessages } from '../context/SyncProvider'
+import type { Message } from '../lib/opencode'
 import { checkServerHealth } from '../lib/opencode/health'
 
 test('checkServerHealth returns connected details', async () => {
@@ -29,4 +31,47 @@ test('checkServerHealth returns connected details', async () => {
     url: 'http://localhost:5577',
     version: '1.0.0',
   })
+})
+
+test('shouldFetchSessionMessages skips hydrated cache', () => {
+  const hydratedMessages = [{ id: 'message-1' } as Message]
+
+  expect(
+    shouldFetchSessionMessages({
+      existingMessages: hydratedMessages,
+      needsHydration: false,
+    }),
+  ).toEqual(false)
+})
+
+test('shouldFetchSessionMessages fetches when messages are missing', () => {
+  expect(
+    shouldFetchSessionMessages({
+      existingMessages: [],
+      needsHydration: false,
+    }),
+  ).toEqual(true)
+})
+
+test('shouldFetchSessionMessages fetches when hydration is required', () => {
+  const hydratedMessages = [{ id: 'message-2' } as Message]
+
+  expect(
+    shouldFetchSessionMessages({
+      existingMessages: hydratedMessages,
+      needsHydration: true,
+    }),
+  ).toEqual(true)
+})
+
+test('shouldFetchSessionMessages fetches when forced', () => {
+  const hydratedMessages = [{ id: 'message-3' } as Message]
+
+  expect(
+    shouldFetchSessionMessages({
+      existingMessages: hydratedMessages,
+      needsHydration: false,
+      force: true,
+    }),
+  ).toEqual(true)
 })
