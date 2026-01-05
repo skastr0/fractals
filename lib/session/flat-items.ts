@@ -50,12 +50,24 @@ const getPartEndTime = (part: Part): number | undefined => {
   return (part as PartWithTime).time?.end
 }
 
+// Hidden part types that don't render any preview
+const HIDDEN_PART_TYPES = new Set(['step-start', 'step-finish', 'snapshot'])
+
 // Check if a part should be visible in the message list
 // Filters out parts that would render as empty (no preview content)
 const isPartVisible = (part: Part): boolean => {
-  // Text parts must have non-empty content
-  if (part.type === 'text' && !part.text.trim()) {
+  // Hidden parts never render
+  if (HIDDEN_PART_TYPES.has(part.type)) {
     return false
+  }
+
+  // Text parts: filter out empty or ignored
+  if (part.type === 'text') {
+    // Cast to access optional ignored property
+    const textPart = part as { text: string; ignored?: boolean }
+    if (textPart.ignored || !textPart.text.trim()) {
+      return false
+    }
   }
 
   // All other part types are potentially visible
