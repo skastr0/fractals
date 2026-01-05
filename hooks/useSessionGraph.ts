@@ -158,13 +158,14 @@ const buildGroupNodes = (
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 export function useSessionGraph() {
-  const { sessions: rawSessions } = useSessions()
+  const { sessions: rawSessions } = useSessions({ subscription: 'structure' })
   const sessions = rawSessions as SessionWithKey[]
   const { state$ } = useSync()
   const { projects } = useProject()
   const { filterHours, setFilterHours } = useSessionFilter()
   const elk = useMemo(() => new ELK(), [])
   const treeIndexRef = useRef<Map<string, SessionTreeNode>>(new Map())
+  const layoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [layoutedNodes, setLayoutedNodes] = useState<SessionFlowNode[]>([])
   const [layoutedEdges, setLayoutedEdges] = useState<Edge[]>([])
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
@@ -386,10 +387,20 @@ export function useSessionGraph() {
       setIsLayouting(false)
     }
 
-    void layoutGraph()
+    if (layoutTimeoutRef.current) {
+      clearTimeout(layoutTimeoutRef.current)
+    }
+
+    layoutTimeoutRef.current = setTimeout(() => {
+      void layoutGraph()
+    }, 100)
 
     return () => {
       cancelled = true
+      if (layoutTimeoutRef.current) {
+        clearTimeout(layoutTimeoutRef.current)
+        layoutTimeoutRef.current = null
+      }
     }
   }, [baseGraph.edges, baseGraph.nodes, elk])
 

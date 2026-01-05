@@ -10,14 +10,16 @@ interface ScrollToBottomProps {
 
 export function ScrollToBottom({ onClick }: ScrollToBottomProps) {
   return (
-    <Button
-      variant="secondary"
-      size="sm"
-      className="absolute bottom-24 left-1/2 -translate-x-1/2 shadow-lg"
-      onPress={onClick}
-    >
-      <ChevronDown className="h-4 w-4" />
-      Scroll to bottom
-    </Button>
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-24">
+      <Button
+        variant="secondary"
+        size="sm"
+        className="pointer-events-auto shadow-lg"
+        onPress={onClick}
+      >
+        <ChevronDown className="h-4 w-4" />
+        Scroll to bottom
+      </Button>
+    </div>
   )
 }

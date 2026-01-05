@@ -7,8 +7,6 @@ import { Markdown } from '@/components/ui/markdown'
 import type { ReasoningPart } from '@/lib/opencode'
 import { formatDuration } from '@/lib/utils/date'
 
-import { TypewriterEffect } from '../typewriter-effect'
-
 interface ReasoningPartRendererProps {
   part: ReasoningPart
 }
@@ -50,12 +48,9 @@ export const ReasoningPartRenderer = memo(function ReasoningPartRenderer({
 
       {isExpanded ? (
         <div className="border-t border-primary/20 bg-background/50 p-3">
-          <TypewriterEffect
-            text={part.text}
-            isStreaming={isStreaming}
-            className="text-sm italic text-muted-foreground"
-            render={(value) => <Markdown content={value} />}
-          />
+          <div className="text-sm italic text-muted-foreground">
+            <Markdown content={part.text} />
+          </div>
         </div>
       ) : null}
     </div>

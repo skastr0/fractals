@@ -123,6 +123,23 @@ export interface SyncState {
 // =============================================================================
 // CONTEXT VALUE - Stable reference, NEVER changes after mount
 // =============================================================================
+export interface SyncSessionOptions {
+  force?: boolean
+}
+
+export const shouldFetchSessionMessages = ({
+  existingMessages,
+  needsHydration,
+  force,
+}: {
+  existingMessages?: Message[]
+  needsHydration?: boolean
+  force?: boolean
+}): boolean => {
+  const hasMessages = Boolean(existingMessages && existingMessages.length > 0)
+  return Boolean(force) || !hasMessages || Boolean(needsHydration)
+}
+
 export interface SyncContextValue {
   /**
    * The observable state. Use with Legend State's use$ for fine-grained subscriptions.
@@ -136,7 +153,7 @@ export interface SyncContextValue {
   state$: Observable<SyncState>
 
   /** Sync a session's messages from the server */
-  syncSession: (sessionKey: string) => Promise<void>
+  syncSession: (sessionKey: string, options?: SyncSessionOptions) => Promise<void>
 
   /** Get a session without subscribing (peek) */
   getSession: (sessionKey: string) => Session | undefined
@@ -522,7 +539,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Stable method - syncs a session's messages from server
   // biome-ignore lint/correctness/useExhaustiveDependencies: key$ is a pure utility function
   const syncSession = useCallback(
-    async (sessionKey: string) => {
+    async (sessionKey: string, options?: SyncSessionOptions) => {
       if (!client) {
         return
       }
@@ -535,6 +552,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }
 
       const normalizedKey = parsed ? sessionKey : buildSessionKey(directory, sessionId)
+      const existingMessages = key$<Message[]>(state$.data.messages, normalizedKey).peek()
+      const needsHydration = key$<boolean>(state$.data.needsHydration, normalizedKey).peek()
+
+      if (
+        !shouldFetchSessionMessages({ existingMessages, needsHydration, force: options?.force })
+      ) {
+        return
+      }
+
       const activeClient = client
 
       const messagesResult = await activeClient.session.messages({
