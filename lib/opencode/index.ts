@@ -1,4 +1,5 @@
 export * from './client'
+export * from './commands'
 export * from './errors'
 export * from './health'
 export * from './sessions'
