@@ -13,6 +13,7 @@ import {
   FolderOpen,
   GitBranch,
   Globe,
+  History,
   ListTodo,
   MessageSquare,
   Minimize2,
@@ -389,10 +390,12 @@ function PatchPreview({ part, isExpanded }: { part: PatchPart; isExpanded?: bool
 
   return (
     <PreviewLayout
-      icon={FileCode}
-      label="Patch"
-      preview={part.hash.slice(0, 8)}
-      badge={`${fileCount} file${fileCount !== 1 ? 's' : ''}`}
+      icon={History}
+      iconClassName="text-muted-foreground"
+      label="Checkpoint"
+      preview={
+        fileCount > 0 ? `${fileCount} file${fileCount !== 1 ? 's' : ''} modified` : 'Recorded'
+      }
       isExpanded={isExpanded}
     />
   )

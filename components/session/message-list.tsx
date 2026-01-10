@@ -34,8 +34,8 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
   // Helper to check if a part should be expanded by default
   const shouldExpandByDefault = useCallback((item: FlatItem): boolean => {
     if (item.type !== 'part') return false
-    // Patches/diffs are expanded by default
-    if (item.part.type === 'patch') return true
+    // Patches are collapsed by default (they're internal checkpoints)
+    if (item.part.type === 'patch') return false
     // Non-synthetic text (agent responses) are expanded by default
     if (item.part.type === 'text' && !item.isSynthetic) return true
     return false
