@@ -5,8 +5,10 @@ import {
 } from '@opencode-ai/sdk/v2/client'
 
 export type {
+  Agent,
   AgentPart,
   AssistantMessage,
+  Command,
   Config,
   Event,
   GlobalEvent,
