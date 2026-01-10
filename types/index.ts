@@ -6,7 +6,7 @@ export type SessionStatus = 'idle' | 'busy' | 'retry' | 'pending_permission'
 /**
  * Pane types in the UI
  */
-export type PaneType = 'session' | 'config' | 'project' | 'agent' | 'metadata' | 'file'
+export type PaneType = 'session' | 'config' | 'project' | 'agent' | 'metadata' | 'file' | 'diff'
 
 /**
  * Pane identifier - some are singleton, some can have multiple instances
@@ -18,6 +18,18 @@ export type PaneId =
   | 'metadata'
   | `agent-${string}`
   | `file-${string}`
+  | `diff-${string}`
+
+/**
+ * File diff from OpenCode session
+ */
+export interface FileDiff {
+  file: string
+  before: string
+  after: string
+  additions: number
+  deletions: number
+}
 
 /**
  * Session node data for ReactFlow
