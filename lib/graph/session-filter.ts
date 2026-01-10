@@ -1,6 +1,6 @@
 import type { Session } from '@/lib/opencode'
 
-export const DEFAULT_SESSION_FILTER_HOURS = 24
+export const DEFAULT_SESSION_FILTER_HOURS = 6
 
 const normalizeSearchValue = (value: string): string => value.toLowerCase().replace(/\s+/g, '')
 
