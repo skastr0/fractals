@@ -55,8 +55,12 @@ export const ForkControls = memo(function ForkControls({
       const title = newSession.title?.trim() || 'Forked Session'
       const directory = sessionLookup?.directory ?? currentProject?.worktree
       const newSessionKey = directory ? buildSessionKey(directory, newSession.id) : newSession.id
-      const { SessionPane } = await import('@/components/panes/session-pane')
+      const { SessionPane, SessionPaneHeaderContent, SessionPaneHeaderActions } = await import(
+        '@/components/panes/session-pane'
+      )
       const paneContent = <SessionPane sessionKey={newSessionKey} />
+      const headerContent = <SessionPaneHeaderContent sessionKey={newSessionKey} />
+      const headerActions = <SessionPaneHeaderActions sessionKey={newSessionKey} />
 
       const hasSessionPane = panes$.panes.get().some((pane) => pane.id === 'session')
 
@@ -64,7 +68,13 @@ export const ForkControls = memo(function ForkControls({
         panes$.stackPane('session', paneContent)
         panes$.setPaneTitle('session', title)
       } else {
-        panes$.openPane({ type: 'session', component: paneContent, title })
+        panes$.openPane({
+          type: 'session',
+          component: paneContent,
+          title,
+          headerContent,
+          headerActions,
+        })
       }
     } finally {
       setIsForking(false)

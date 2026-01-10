@@ -3,6 +3,8 @@
 import { Bot, GitFork, User } from 'lucide-react'
 import { type KeyboardEvent, memo, useCallback, useMemo } from 'react'
 
+import { useAgentColors } from '@/context/AgentColorProvider'
+import { hexToHsl } from '@/lib/graph/depth-styles'
 import type { AssistantMessage, Part, UserMessage } from '@/lib/opencode'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/utils/date'
@@ -35,6 +37,10 @@ export const MessageTurn = memo(
     onSelect,
   }: MessageTurnProps) {
     const { userMessage, userParts, assistantMessages, assistantParts } = turnData
+    const { getAgentColor } = useAgentColors()
+
+    // Get agent color for visual accent
+    const agentColor = getAgentColor(userMessage.agent)
 
     // Get the last assistant message for metadata display
     const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
@@ -108,14 +114,36 @@ export const MessageTurn = memo(
         {...interactiveProps}
       >
         <div className="flex gap-2">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <User className="h-3.5 w-3.5 text-primary" />
+          <div
+            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+            style={
+              agentColor
+                ? { backgroundColor: `${hexToHsl(agentColor).replace(')', ' / 0.15)')}` }
+                : { backgroundColor: 'hsl(var(--primary) / 0.1)' }
+            }
+          >
+            <User
+              className="h-3.5 w-3.5"
+              style={
+                agentColor ? { color: hexToHsl(agentColor) } : { color: 'hsl(var(--primary))' }
+              }
+            />
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="text-sm font-medium text-foreground">You</span>
               <span>{formatRelativeTime(userMessage.time.created)}</span>
-              <span className="rounded bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
+              <span
+                className="rounded px-1.5 py-0.5 text-xs font-medium"
+                style={
+                  agentColor
+                    ? {
+                        backgroundColor: `${hexToHsl(agentColor).replace(')', ' / 0.2)')}`,
+                        color: hexToHsl(agentColor),
+                      }
+                    : undefined
+                }
+              >
                 {userMessage.agent}
               </span>
               <span className="text-xs text-muted-foreground">

@@ -19,8 +19,8 @@ const paneVariants = tv({
       'data-[state=closing]:slide-out-to-right-2',
     ],
     header: [
-      'flex flex-shrink-0 items-center justify-between gap-2 px-4 py-3',
-      'border-b border-border bg-background/50',
+      'flex flex-shrink-0 items-center justify-between gap-2 px-3 py-1.5',
+      'border-b border-border/50',
     ],
     title: 'text-sm font-medium text-foreground truncate',
     actions: 'flex items-center gap-1',
@@ -36,6 +36,10 @@ export interface PaneProps {
   isClosing?: boolean
   onClose: () => void
   onUnstack?: () => void
+  /** Custom content to render in the header after the title */
+  headerContent?: ReactNode
+  /** Custom actions to render before the close button */
+  headerActions?: ReactNode
   children: ReactNode
 }
 
@@ -47,6 +51,8 @@ export function Pane({
   isClosing,
   onClose,
   onUnstack,
+  headerContent,
+  headerActions,
   children,
 }: PaneProps) {
   const styles = paneVariants()
@@ -69,8 +75,12 @@ export function Pane({
             </Button>
           ) : null}
           <h3 className={styles.title()}>{title}</h3>
+          {/* Custom header content (e.g. stats) */}
+          {headerContent}
         </div>
         <div className={styles.actions()}>
+          {/* Custom actions before close button */}
+          {headerActions}
           <Button aria-label="Close" variant="ghost" size="icon" onPress={onClose}>
             <X className="h-4 w-4" />
           </Button>

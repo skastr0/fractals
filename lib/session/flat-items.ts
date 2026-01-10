@@ -26,6 +26,8 @@ export interface PartItem extends FlatItemBase {
   part: Part
   isAssistant: boolean
   isStreaming: boolean
+  /** Whether this part is synthetic (system-injected), should be collapsed by default */
+  isSynthetic: boolean
 }
 
 export type FlatItem = UserMessageItem | AssistantHeaderItem | PartItem
@@ -45,9 +47,17 @@ const isAssistantMessage = (message: Message): message is AssistantMessage =>
   message.role === 'assistant'
 
 type PartWithTime = Part & { time?: { end?: number } }
+type TextPartExtended = Part & { synthetic?: boolean; ignored?: boolean }
 
 const getPartEndTime = (part: Part): number | undefined => {
   return (part as PartWithTime).time?.end
+}
+
+const isPartSynthetic = (part: Part): boolean => {
+  if (part.type === 'text') {
+    return (part as TextPartExtended).synthetic === true
+  }
+  return false
 }
 
 // Hidden part types that don't render any preview
@@ -129,6 +139,7 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
           part,
           isAssistant: false,
           isStreaming: !getPartEndTime(part),
+          isSynthetic: isPartSynthetic(part),
         })
       }
     }
@@ -157,6 +168,7 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
             part,
             isAssistant: true,
             isStreaming: !getPartEndTime(part),
+            isSynthetic: isPartSynthetic(part),
           })
         }
       }

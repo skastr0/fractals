@@ -116,36 +116,33 @@ function PreviewLayout({
   return (
     <div
       className={cn(
-        'flex h-10 items-center gap-3 px-4 text-sm',
-        'rounded-md transition-colors',
-        'hover:bg-muted/40',
+        'flex h-7 items-center gap-1.5 px-2 text-xs',
+        'transition-colors hover:bg-muted/20',
         className,
       )}
     >
-      <Icon className={cn('h-4 w-4 flex-shrink-0 text-muted-foreground', iconClassName)} />
-
-      {label ? (
-        <span className="flex-shrink-0 text-xs font-medium text-muted-foreground">{label}</span>
-      ) : null}
-
-      <span className="min-w-0 flex-1 truncate text-foreground/80">{preview}</span>
-
-      {badge ? (
-        <span className="flex-shrink-0 rounded bg-secondary/60 px-1.5 py-0.5 font-mono text-[10px] text-secondary-foreground">
-          {badge}
-        </span>
-      ) : null}
-
-      {isStreaming ? (
-        <span className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-green-500" />
-      ) : null}
-
       <ChevronRight
         className={cn(
-          'h-4 w-4 flex-shrink-0 text-muted-foreground/50 transition-transform duration-150',
+          'h-3 w-3 flex-shrink-0 text-muted-foreground/50 transition-transform duration-150',
           isExpanded && 'rotate-90',
         )}
       />
+
+      <Icon className={cn('h-3.5 w-3.5 flex-shrink-0 text-muted-foreground', iconClassName)} />
+
+      {label ? (
+        <span className="flex-shrink-0 text-[10px] font-medium text-muted-foreground">{label}</span>
+      ) : null}
+
+      <span className="min-w-0 flex-1 truncate text-foreground/70">{preview}</span>
+
+      {badge ? (
+        <span className="flex-shrink-0 font-mono text-[9px] text-muted-foreground">{badge}</span>
+      ) : null}
+
+      {isStreaming ? (
+        <span className="h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full bg-green-500" />
+      ) : null}
     </div>
   )
 }
@@ -172,6 +169,7 @@ function TextPreview({
   return (
     <PreviewLayout
       icon={MessageSquare}
+      label={part.synthetic ? 'System' : undefined}
       preview={preview || 'Waiting for response…'}
       isStreaming={isStreaming}
       isExpanded={isExpanded}
@@ -380,6 +378,7 @@ function FilePreview({ part, isExpanded }: { part: FilePart; isExpanded?: boolea
       icon={isSymbol ? FileCode : FileText}
       iconClassName={isSymbol ? 'text-primary' : undefined}
       preview={label ?? 'File attachment'}
+      badge={part.mime ?? undefined}
       isExpanded={isExpanded}
     />
   )

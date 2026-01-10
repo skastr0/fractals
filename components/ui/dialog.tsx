@@ -17,7 +17,7 @@ import { Button } from './button'
 const dialogStyles = tv({
   slots: {
     overlay: [
-      'fixed inset-0 z-50 bg-black/50 backdrop-blur-sm',
+      'fixed inset-0 z-50',
       'data-[entering]:animate-in data-[entering]:fade-in-0',
       'data-[exiting]:animate-out data-[exiting]:fade-out-0',
     ],

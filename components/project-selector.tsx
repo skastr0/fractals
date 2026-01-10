@@ -1,7 +1,15 @@
 'use client'
 
-import { Check, FolderOpen, Plus, Search } from 'lucide-react'
-import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Check, Folder, FolderOpen, Search } from 'lucide-react'
+import {
+  type ChangeEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter } from '@/components/ui/dialog'
@@ -53,6 +61,15 @@ export function ProjectSelector() {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const isOpenRef = useRef(isOpen)
+  const closeDropdown = useCallback(() => {
+    setIsOpen(false)
+    setSearchTerm('')
+  }, [])
+
+  useEffect(() => {
+    isOpenRef.current = isOpen
+  }, [isOpen])
 
   useEffect(() => {
     if (!isDialogOpen || !fileInputRef.current) {
@@ -64,17 +81,24 @@ export function ProjectSelector() {
   }, [isDialogOpen])
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!containerRef.current || containerRef.current.contains(event.target as Node)) {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!isOpenRef.current) {
         return
       }
-      setIsOpen(false)
-      setSearchTerm('')
+      const container = containerRef.current
+      if (!container) {
+        return
+      }
+      const path = event.composedPath()
+      if (path.includes(container)) {
+        return
+      }
+      closeDropdown()
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    document.addEventListener('pointerdown', handlePointerDown, { capture: true })
+    return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true })
+  }, [closeDropdown])
 
   const placeholder = isLoading
     ? 'Loading projects...'
@@ -149,9 +173,7 @@ export function ProjectSelector() {
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
-      setIsOpen(false)
-      setSearchTerm('')
-      inputRef.current?.blur()
+      closeDropdown()
     }
   }
 
@@ -301,13 +323,14 @@ export function ProjectSelector() {
           variant="ghost"
           size="icon"
           onPress={() => {
+            closeDropdown()
             setAddError(null)
             setCustomPath('')
             setIsDialogOpen(true)
           }}
           aria-label="Add project"
         >
-          <Plus className="h-4 w-4" />
+          <Folder className="h-4 w-4" />
         </Button>
         <DialogContent title="Add project" description="Paste the project directory to open it.">
           <DialogBody>

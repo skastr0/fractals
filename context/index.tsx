@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 
 import { ErrorBoundary } from '@/components/error-boundary'
 
+import { AgentColorProvider } from './AgentColorProvider'
 import { FocusManagerProvider } from './FocusManagerProvider'
 import { OpenCodeProvider } from './OpenCodeProvider'
 import { PanesProvider } from './PanesProvider'
@@ -17,21 +18,25 @@ export function Providers({ children }: { children: ReactNode }) {
     <ErrorBoundary>
       <ViewportHeightProvider>
         <OpenCodeProvider>
-          <ProjectProvider>
-            <SyncProvider>
-              <SessionFilterProvider>
-                <PanesProvider>
-                  <FocusManagerProvider>{children}</FocusManagerProvider>
-                </PanesProvider>
-              </SessionFilterProvider>
-            </SyncProvider>
-          </ProjectProvider>
+          <AgentColorProvider>
+            <ProjectProvider>
+              <SyncProvider>
+                <SessionFilterProvider>
+                  <PanesProvider>
+                    <FocusManagerProvider>{children}</FocusManagerProvider>
+                  </PanesProvider>
+                </SessionFilterProvider>
+              </SyncProvider>
+            </ProjectProvider>
+          </AgentColorProvider>
         </OpenCodeProvider>
       </ViewportHeightProvider>
     </ErrorBoundary>
   )
 }
 
+export type { AgentColorContextValue, AgentColorState } from './AgentColorProvider'
+export { AgentColorProvider, useAgentColor, useAgentColors, useAgents } from './AgentColorProvider'
 export type { FocusArea, FocusContext, FocusManagerContextValue } from './FocusManagerProvider'
 export { FocusManagerProvider, useFocusManager } from './FocusManagerProvider'
 export type { OpenCodeContextValue } from './OpenCodeProvider'
