@@ -5,8 +5,8 @@ import { useOpenCode } from '@/context/OpenCodeProvider'
 import { getActiveProject, useProject } from '@/context/ProjectProvider'
 import {
   buildCommandRegistry,
-  createLocalCommandRegistry,
   type CommandCollisionStrategy,
+  createLocalCommandRegistry,
   type LocalCommandRegistryOptions,
 } from '@/lib/commands'
 import { commandService } from '@/lib/opencode'
