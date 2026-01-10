@@ -1,13 +1,20 @@
 'use client'
 
 import { use$ } from '@legendapp/state/react'
-import { Handle, type Node, type NodeProps, Position } from '@xyflow/react'
+import type { Node, NodeProps } from '@xyflow/react'
 import { Coins, Gauge, Minus, Plus, Zap } from 'lucide-react'
-import { memo, useMemo } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { tv } from 'tailwind-variants'
 
+import {
+  DiffPane,
+  DiffPaneHeaderActions,
+  DiffPaneHeaderContent,
+} from '@/components/panes/diff-pane'
+import { DiffStatsWidget } from '@/components/ui/diff-stats-widget'
 import { StatusDot } from '@/components/ui/status-dot'
 import { useAgentColors } from '@/context/AgentColorProvider'
+import { usePanes } from '@/context/PanesProvider'
 import { useSync } from '@/context/SyncProvider'
 import { getAccentColor } from '@/lib/graph/depth-styles'
 import type {
@@ -15,11 +22,12 @@ import type {
   Message,
   Part,
   SessionStatus as SDKSessionStatus,
+  Session,
   UserMessage,
 } from '@/lib/opencode'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/utils/date'
-import type { SessionNodeData, SessionStatus } from '@/types'
+import type { FileDiff, SessionNodeData, SessionStatus } from '@/types'
 
 // Default context limit for common models when we can't look it up
 const DEFAULT_CONTEXT_LIMIT = 200_000
@@ -100,6 +108,24 @@ function computeTokenStats(messages: Message[] | undefined): TokenStats {
         : null
 
   return { output: totalOutput, cost: totalCost, contextPercent }
+}
+
+interface DiffStats {
+  additions: number
+  deletions: number
+}
+
+function computeDiffStats(diffs: FileDiff[] | undefined): DiffStats {
+  if (!diffs || diffs.length === 0) {
+    return { additions: 0, deletions: 0 }
+  }
+  return diffs.reduce(
+    (acc, diff) => ({
+      additions: acc.additions + diff.additions,
+      deletions: acc.deletions + diff.deletions,
+    }),
+    { additions: 0, deletions: 0 },
+  )
 }
 
 function getPreviewText(
@@ -204,8 +230,6 @@ const nodeVariants = tv({
   },
 })
 
-const handleClass = '!h-3 !w-3 !rounded-sm !border-0 !bg-border/80'
-
 export const SessionNode = memo(function SessionNode({
   data,
   selected,
@@ -213,11 +237,16 @@ export const SessionNode = memo(function SessionNode({
   // V3: Subscribe to THIS session's status and messages only - granular subscription
   // This prevents the entire graph from re-rendering when any session's status changes
   const { state$ } = useSync()
+  const panes$ = usePanes()
   const { getAgentColor } = useAgentColors()
   const liveStatus = use$(state$.data.sessionStatus[data.sessionKey]) as
     | SDKSessionStatus
     | undefined
   const messages = use$(state$.data.messages[data.sessionKey]) as Message[] | undefined
+  const session = use$(state$.data.sessions[data.sessionKey]) as Session | undefined
+  // Subscribe to session diffs for this session
+  const sessionDiffs = use$(state$.data.sessionDiffs[data.sessionKey]) as FileDiff[] | undefined
+  const summary = session?.summary
   // Get the last message ID to subscribe to its parts
   const lastMessageId = messages?.[messages.length - 1]?.id
   const lastMessageParts = use$(lastMessageId ? state$.data.parts[lastMessageId] : undefined) as
@@ -230,10 +259,33 @@ export const SessionNode = memo(function SessionNode({
     [messages, lastMessageParts, status],
   )
   const tokenStats = useMemo(() => computeTokenStats(messages), [messages])
+  const diffStats = useMemo(() => {
+    if (sessionDiffs && sessionDiffs.length > 0) {
+      return computeDiffStats(sessionDiffs)
+    }
+    if (!summary) {
+      return { additions: 0, deletions: 0 }
+    }
+    return { additions: summary.additions ?? 0, deletions: summary.deletions ?? 0 }
+  }, [sessionDiffs, summary])
+  const hasDiffs = diffStats.additions > 0 || diffStats.deletions > 0
 
   // Get agent name from messages to determine color
   const agentName = useMemo(() => getAgentName(messages), [messages])
   const agentColor = agentName ? getAgentColor(agentName) : undefined
+
+  // Handler to open diff pane
+  const handleOpenDiff = useCallback(() => {
+    const sessionKey = data.sessionKey
+    const title = data.title?.trim() || 'Session'
+    panes$.openPane({
+      type: 'diff',
+      component: <DiffPane sessionKey={sessionKey} />,
+      title: `${title} - Diff`,
+      headerContent: <DiffPaneHeaderContent sessionKey={sessionKey} />,
+      headerActions: <DiffPaneHeaderActions sessionKey={sessionKey} />,
+    })
+  }, [data.sessionKey, data.title, panes$])
 
   const isSelected = data.isSelected || selected
   const isHighlighted = Boolean(data.isHighlighted)
@@ -260,7 +312,6 @@ export const SessionNode = memo(function SessionNode({
       })}
       style={data.isSubagent ? { borderLeftColor: accentColor } : { borderTopColor: accentColor }}
     >
-      <Handle type="target" position={Position.Left} className={handleClass} />
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-medium text-foreground truncate" title={title}>
@@ -315,6 +366,14 @@ export const SessionNode = memo(function SessionNode({
               <Zap className="h-3.5 w-3.5" />
             </span>
           )}
+          {hasDiffs && (
+            <DiffStatsWidget
+              additions={diffStats.additions}
+              deletions={diffStats.deletions}
+              size="sm"
+              onClick={handleOpenDiff}
+            />
+          )}
           <StatusDot status={status} size="sm" />
         </div>
       </div>
@@ -342,7 +401,6 @@ export const SessionNode = memo(function SessionNode({
           <span>{childCount}</span>
         </button>
       ) : null}
-      <Handle type="source" position={Position.Right} className={handleClass} />
     </div>
   )
 })

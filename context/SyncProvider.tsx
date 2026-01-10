@@ -127,6 +127,12 @@ export interface SyncSessionOptions {
   force?: boolean
 }
 
+export interface SyncSessionDiffOptions {
+  force?: boolean
+}
+
+type SessionSummary = NonNullable<Session['summary']>
+
 export const shouldFetchSessionMessages = ({
   existingMessages,
   needsHydration,
@@ -138,6 +144,27 @@ export const shouldFetchSessionMessages = ({
 }): boolean => {
   const hasMessages = Boolean(existingMessages && existingMessages.length > 0)
   return Boolean(force) || !hasMessages || Boolean(needsHydration)
+}
+
+export const shouldFetchSessionDiffs = ({
+  existingDiffs,
+  summary,
+  force,
+}: {
+  existingDiffs?: FileDiff[]
+  summary?: SessionSummary
+  force?: boolean
+}): boolean => {
+  if (force) {
+    return true
+  }
+  if (existingDiffs !== undefined) {
+    return false
+  }
+  if (!summary) {
+    return true
+  }
+  return summary.files > 0 || summary.additions > 0 || summary.deletions > 0
 }
 
 export interface SyncContextValue {
@@ -154,6 +181,9 @@ export interface SyncContextValue {
 
   /** Sync a session's messages from the server */
   syncSession: (sessionKey: string, options?: SyncSessionOptions) => Promise<void>
+
+  /** Sync a session's diffs from the server */
+  syncSessionDiffs: (sessionKey: string, options?: SyncSessionDiffOptions) => Promise<void>
 
   /** Get a session without subscribing (peek) */
   getSession: (sessionKey: string) => Session | undefined
@@ -590,6 +620,46 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [client, currentProject, state$],
   )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key$ is a pure utility function
+  const syncSessionDiffs = useCallback(
+    async (sessionKey: string, options?: SyncSessionDiffOptions) => {
+      if (!client) {
+        return
+      }
+
+      const parsed = parseSessionKey(sessionKey)
+      const directory = parsed?.directory ?? currentProject?.worktree
+      const sessionId = parsed?.sessionId ?? sessionKey
+      if (!directory) {
+        return
+      }
+
+      const normalizedKey = parsed ? sessionKey : buildSessionKey(directory, sessionId)
+      const existingDiffs = key$<FileDiff[]>(state$.data.sessionDiffs, normalizedKey).peek()
+      const session = key$<Session>(state$.data.sessions, normalizedKey).peek()
+      const summary = session?.summary
+      const summaryHasDiffs = Boolean(
+        summary && (summary.files > 0 || summary.additions > 0 || summary.deletions > 0),
+      )
+
+      if (!shouldFetchSessionDiffs({ existingDiffs, summary, force: options?.force })) {
+        if (existingDiffs === undefined && summary && !summaryHasDiffs) {
+          key$<FileDiff[]>(state$.data.sessionDiffs, normalizedKey).set([])
+        }
+        return
+      }
+
+      const activeClient = client
+      const diffResult = await activeClient.session.diff({
+        sessionID: sessionId,
+        directory,
+      })
+      const diffs = diffResult.data ?? []
+      key$<FileDiff[]>(state$.data.sessionDiffs, normalizedKey).set(diffs)
+    },
+    [client, currentProject, state$],
+  )
+
   // Stable method - get a session without subscribing
   const getSession = useCallback(
     (sessionKey: string) => {
@@ -615,11 +685,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     () => ({
       state$,
       syncSession,
+      syncSessionDiffs,
       getSession,
       listSessions,
     }),
     // These are stable refs - state$ from useObservable, callbacks from useCallback
-    [state$, syncSession, getSession, listSessions],
+    [state$, syncSession, syncSessionDiffs, getSession, listSessions],
   )
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>

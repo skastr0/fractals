@@ -1,12 +1,19 @@
 'use client'
 
+import { use$ } from '@legendapp/state/react'
 import { Coins, Gauge, Pencil, Square, Trash2, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  DiffPane,
+  DiffPaneHeaderActions,
+  DiffPaneHeaderContent,
+} from '@/components/panes/diff-pane'
 import { RevertControls } from '@/components/session/fork-controls'
 import { MessageList } from '@/components/session/message-list'
 import { SessionInput } from '@/components/session/session-input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter } from '@/components/ui/dialog'
+import { DiffStatsWidget } from '@/components/ui/diff-stats-widget'
 import { Input } from '@/components/ui/input'
 import { StatusDot } from '@/components/ui/status-dot'
 import { usePanes } from '@/context/PanesProvider'
@@ -17,6 +24,7 @@ import { type SessionStats, useSessionStats } from '@/hooks/useSessionStats'
 import { useSessionStatus } from '@/hooks/useSessionStatus'
 import { sessionService } from '@/lib/opencode/sessions'
 import { buildSessionKey, resolveSessionKey } from '@/lib/utils/session-key'
+import type { FileDiff } from '@/types'
 
 // Format helpers for compact stats display
 function formatNumber(num: number): string {
@@ -79,6 +87,28 @@ export function SessionPaneHeaderContent({ sessionKey }: { sessionKey: string })
   const modelInfo = useModelInfo(messages)
   const sessionLookup = useMemo(() => resolveSessionKey(sessionKey), [sessionKey])
 
+  // Subscribe to session diffs for this session
+  const sessionDiffs = use$(state$.data.sessionDiffs[sessionKey]) as FileDiff[] | undefined
+  const summary = session?.summary
+
+  // Compute diff stats
+  const diffStats = useMemo(() => {
+    if (sessionDiffs && sessionDiffs.length > 0) {
+      return sessionDiffs.reduce(
+        (acc, diff) => ({
+          additions: acc.additions + diff.additions,
+          deletions: acc.deletions + diff.deletions,
+        }),
+        { additions: 0, deletions: 0 },
+      )
+    }
+    if (!summary) {
+      return { additions: 0, deletions: 0 }
+    }
+    return { additions: summary.additions ?? 0, deletions: summary.deletions ?? 0 }
+  }, [sessionDiffs, summary])
+  const hasDiffs = diffStats.additions > 0 || diffStats.deletions > 0
+
   const sessionDepth = (session as { depth?: number } | undefined)?.depth ?? 0
   const parentId = session?.parentID
   const parentSessionKey = useMemo(() => {
@@ -93,8 +123,20 @@ export function SessionPaneHeaderContent({ sessionKey }: { sessionKey: string })
 
   const parentLabel = parentSession?.title?.trim() || parentId || 'Parent'
   const parentTitle = parentSession?.title?.trim() || parentId || 'Session'
+  const sessionTitle = session?.title?.trim() || 'Session'
   const isSubagent = Boolean(session && (session.parentID || sessionDepth > 0))
   const isFork = Boolean(session?.parentID && sessionDepth === 0)
+
+  // Handler to open diff pane
+  const handleOpenDiff = useCallback(() => {
+    panes$.openPane({
+      type: 'diff',
+      component: <DiffPane sessionKey={sessionKey} />,
+      title: `${sessionTitle} - Diff`,
+      headerContent: <DiffPaneHeaderContent sessionKey={sessionKey} />,
+      headerActions: <DiffPaneHeaderActions sessionKey={sessionKey} />,
+    })
+  }, [panes$, sessionKey, sessionTitle])
 
   const handleOpenParent = useCallback(() => {
     if (!parentSessionKey) return
@@ -156,6 +198,14 @@ export function SessionPaneHeaderContent({ sessionKey }: { sessionKey: string })
           <Coins className="h-3 w-3" />
           <span className="tabular-nums">{formatCost(sessionStats.tokens.cost)}</span>
         </span>
+      )}
+      {hasDiffs && (
+        <DiffStatsWidget
+          additions={diffStats.additions}
+          deletions={diffStats.deletions}
+          size="sm"
+          onClick={handleOpenDiff}
+        />
       )}
       {isSubagent && <span className="rounded bg-secondary/60 px-1 py-0.5">Sub</span>}
       {isFork && <span className="rounded bg-primary/10 px-1 py-0.5 text-primary">Fork</span>}
@@ -337,11 +387,12 @@ export function SessionPaneHeaderActions({ sessionKey }: { sessionKey: string })
  * The header is rendered by the Pane wrapper using SessionPaneHeaderContent/Actions
  */
 export function SessionPane({ sessionKey, autoFocus }: SessionPaneProps) {
-  const { syncSession } = useSync()
+  const { syncSession, syncSessionDiffs } = useSync()
 
   useEffect(() => {
     void syncSession(sessionKey)
-  }, [sessionKey, syncSession])
+    void syncSessionDiffs(sessionKey)
+  }, [sessionKey, syncSession, syncSessionDiffs])
 
   return (
     <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden">
