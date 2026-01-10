@@ -166,6 +166,8 @@ export function PaneContainer({ widthOverride }: PaneContainerProps) {
             isClosing={closingPaneIds.has(pane.id)}
             onClose={() => requestClose(pane.id)}
             onUnstack={() => panes$.unstackPaneOnce(pane.id)}
+            headerContent={pane.headerContent}
+            headerActions={pane.headerActions}
           >
             {activeComponent}
           </Pane>

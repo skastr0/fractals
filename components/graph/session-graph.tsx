@@ -7,11 +7,19 @@ import type { MouseEvent } from 'react'
 import { useCallback, useEffect, useMemo } from 'react'
 import '@xyflow/react/dist/style.css'
 
-import { SessionPane } from '@/components/panes/session-pane'
+import {
+  SessionPane,
+  SessionPaneHeaderActions,
+  SessionPaneHeaderContent,
+} from '@/components/panes/session-pane'
 import { Button } from '@/components/ui/button'
 import { useFocusManager } from '@/context/FocusManagerProvider'
+import { useOpenCode } from '@/context/OpenCodeProvider'
 import { usePanes } from '@/context/PanesProvider'
+import { getActiveProject, useProject } from '@/context/ProjectProvider'
+import { usePreloadPreviews } from '@/hooks/usePreloadPreviews'
 import { useSessionGraph } from '@/hooks/useSessionGraph'
+import { buildSessionKey } from '@/lib/utils/session-key'
 import type { SessionNodeData, SubagentGroupData } from '@/types'
 
 import { SessionNode } from './session-node'
@@ -22,12 +30,81 @@ const nodeTypes = {
   subagentGroup: SubagentGroup,
 }
 
-export function SessionGraph() {
-  const { nodes, edges, selectSession, moveSelection, clearSelection, mostRecentSessionId } =
-    useSessionGraph()
+export interface SessionGraphPaletteActions {
+  onNewSession: () => void
+  onJumpToLatest: () => void
+  onClearSelection: () => void
+  selectedSessionKey: string | null
+}
+
+interface SessionGraphProps {
+  onPaletteActionsChange?: (actions: SessionGraphPaletteActions | null) => void
+}
+
+export function SessionGraph({ onPaletteActionsChange }: SessionGraphProps) {
+  const {
+    nodes,
+    edges,
+    selectSession,
+    moveSelection,
+    clearSelection,
+    mostRecentSessionId,
+    selectedSessionId,
+  } = useSessionGraph()
+  const { client } = useOpenCode()
+  const { currentProject, projects, selectedProjectIds } = useProject()
   const panes$ = usePanes()
   const { isGraphFocused } = useFocusManager()
-  const { fitView, setCenter, getZoom } = useReactFlow()
+  const { setCenter, getZoom } = useReactFlow()
+
+  const activeProject = getActiveProject({ currentProject, projects, selectedProjectIds })
+
+  // Extract session keys from nodes for preview preloading
+  const sessionKeys = useMemo(
+    () =>
+      nodes.filter((n) => n.type === 'session').map((n) => (n.data as SessionNodeData).sessionKey),
+    [nodes],
+  )
+
+  // Preload previews for visible sessions in the background
+  usePreloadPreviews({ sessionKeys })
+
+  const handleQuickNewSession = useCallback(async () => {
+    if (!client || !activeProject) {
+      return
+    }
+
+    try {
+      const result = await client.session.create(
+        { directory: activeProject.worktree },
+        { throwOnError: true },
+      )
+
+      const newSession = result.data
+      if (newSession?.id) {
+        const sessionKey = buildSessionKey(activeProject.worktree, newSession.id)
+        const paneContent = <SessionPane sessionKey={sessionKey} autoFocus />
+        const headerContent = <SessionPaneHeaderContent sessionKey={sessionKey} />
+        const headerActions = <SessionPaneHeaderActions sessionKey={sessionKey} />
+        const hasSessionPane = panes$.panes.get().some((pane) => pane.id === 'session')
+
+        if (hasSessionPane) {
+          panes$.stackPane('session', paneContent)
+          panes$.setPaneTitle('session', 'New Session')
+        } else {
+          panes$.openPane({
+            type: 'session',
+            component: paneContent,
+            title: 'New Session',
+            headerContent,
+            headerActions,
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Failed to create session:', error)
+    }
+  }, [activeProject, client, panes$])
 
   // Find the most recent node's position for focusing
   const mostRecentNode = useMemo(() => {
@@ -47,7 +124,7 @@ export function SessionGraph() {
     }
 
     const nodeWidth = 280
-    const nodeHeight = 96
+    const nodeHeight = 120
     const x = mostRecentNode.position.x + nodeWidth / 2
     const y = mostRecentNode.position.y + nodeHeight / 2
     const zoom = Math.max(getZoom(), 1)
@@ -69,6 +146,8 @@ export function SessionGraph() {
       selectSession(sessionKey)
 
       const paneContent = <SessionPane sessionKey={sessionKey} />
+      const headerContent = <SessionPaneHeaderContent sessionKey={sessionKey} />
+      const headerActions = <SessionPaneHeaderActions sessionKey={sessionKey} />
       const hasSessionPane = panes$.panes.get().some((pane) => pane.id === 'session')
 
       if (hasSessionPane) {
@@ -79,6 +158,8 @@ export function SessionGraph() {
           type: 'session',
           component: paneContent,
           title,
+          headerContent,
+          headerActions,
         })
       }
     },
@@ -88,6 +169,29 @@ export function SessionGraph() {
   const handlePaneClick = useCallback(() => {
     clearSelection()
   }, [clearSelection])
+
+  useEffect(() => {
+    if (!onPaletteActionsChange) {
+      return
+    }
+
+    onPaletteActionsChange({
+      onNewSession: handleQuickNewSession,
+      onJumpToLatest: focusMostRecent,
+      onClearSelection: clearSelection,
+      selectedSessionKey: selectedSessionId,
+    })
+
+    return () => {
+      onPaletteActionsChange(null)
+    }
+  }, [
+    clearSelection,
+    focusMostRecent,
+    handleQuickNewSession,
+    onPaletteActionsChange,
+    selectedSessionId,
+  ])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -131,18 +235,6 @@ export function SessionGraph() {
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [clearSelection, isGraphFocused, moveSelection])
-
-  useEffect(() => {
-    if (nodes.length === 0) {
-      return
-    }
-
-    const handle = window.requestAnimationFrame(() => {
-      fitView({ padding: 0.2, duration: 300 })
-    })
-
-    return () => window.cancelAnimationFrame(handle)
-  }, [fitView, nodes.length])
 
   return (
     <div className="relative h-full w-full bg-background" data-focus-area="graph">

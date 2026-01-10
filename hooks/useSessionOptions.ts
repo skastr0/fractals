@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOpenCode } from '@/context/OpenCodeProvider'
 import { getActiveProject, useProject } from '@/context/ProjectProvider'
 
 const RECENT_MODELS_KEY = 'opencode-tree-ui:recent-models'
+const LAST_MODEL_KEY = 'opencode-tree-ui:last-model'
 const MAX_RECENT_MODELS = 10
 
 /**
@@ -101,6 +102,26 @@ function saveRecentModels(models: ModelRef[]): void {
   }
 }
 
+function loadLastModel(): ModelRef | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = localStorage.getItem(LAST_MODEL_KEY)
+    if (!stored) return null
+    return JSON.parse(stored) as ModelRef
+  } catch {
+    return null
+  }
+}
+
+function saveLastModel(model: ModelRef): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(LAST_MODEL_KEY, JSON.stringify(model))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 function addToRecentModels(model: ModelRef, current: ModelRef[]): ModelRef[] {
   // Remove if already exists, then add to front
   const filtered = current.filter(
@@ -135,7 +156,22 @@ export function useSessionOptions(): UseSessionOptionsResult {
     setRecentRefs(loadRecentModels())
   }, [])
 
-  // Fetch providers and agents
+  // Track if we've initialized defaults (to avoid re-setting on every fetch)
+  const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false)
+  const prevProjectIdRef = useRef<string | undefined>(undefined)
+
+  // Reset initialization flag when project changes
+  const currentProjectId = activeProject?.id
+  if (currentProjectId !== prevProjectIdRef.current) {
+    prevProjectIdRef.current = currentProjectId
+    if (hasInitializedDefaults) {
+      setHasInitializedDefaults(false)
+      setSelectedModel(null)
+      setSelectedAgent(null)
+    }
+  }
+
+  // Fetch providers and agents - only depends on client and project, NOT selections
   useEffect(() => {
     if (!client) {
       return
@@ -197,15 +233,25 @@ export function useSessionOptions(): UseSessionOptionsResult {
 
         setModels(allModels)
 
-        // Set default model if none selected
-        if (allModels.length > 0 && !selectedModel) {
-          // Try to find a default model from config
-          const defaultProviders = providerData.default ?? {}
+        // Set default model only on first load (not when user has already selected)
+        if (allModels.length > 0 && !hasInitializedDefaults) {
+          // First, try to use the last selected model from localStorage
+          const lastModel = loadLastModel()
           let defaultModel: ModelInfo | undefined
 
-          for (const [providerId, modelId] of Object.entries(defaultProviders)) {
-            defaultModel = allModels.find((m) => m.providerId === providerId && m.id === modelId)
-            if (defaultModel) break
+          if (lastModel) {
+            defaultModel = allModels.find(
+              (m) => m.providerId === lastModel.providerID && m.id === lastModel.modelID,
+            )
+          }
+
+          // If no last model, try to find a default model from config
+          if (!defaultModel) {
+            const defaultProviders = providerData.default ?? {}
+            for (const [providerId, modelId] of Object.entries(defaultProviders)) {
+              defaultModel = allModels.find((m) => m.providerId === providerId && m.id === modelId)
+              if (defaultModel) break
+            }
           }
 
           // Fallback to first model
@@ -231,11 +277,14 @@ export function useSessionOptions(): UseSessionOptionsResult {
 
         setAgents(allAgents)
 
-        // Set default agent if none selected (prefer 'build' or first agent)
-        if (allAgents.length > 0 && !selectedAgent) {
+        // Set default agent only on first load
+        if (allAgents.length > 0 && !hasInitializedDefaults) {
           const buildAgent = allAgents.find((a) => a.name === 'build')
           setSelectedAgent(buildAgent ?? allAgents[0] ?? null)
         }
+
+        // Mark defaults as initialized
+        setHasInitializedDefaults(true)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch options')
         console.error('Failed to fetch session options:', err)
@@ -245,7 +294,7 @@ export function useSessionOptions(): UseSessionOptionsResult {
     }
 
     void fetchOptions()
-  }, [activeProject, client, selectedModel, selectedAgent])
+  }, [activeProject, client, hasInitializedDefaults])
 
   // Compute recent models from refs
   const recentModels = useMemo(() => {
@@ -278,12 +327,13 @@ export function useSessionOptions(): UseSessionOptionsResult {
     (model: ModelInfo | null) => {
       setSelectedModel(model)
 
-      // Add to recent models when selecting
+      // Add to recent models and persist as last selected
       if (model) {
         const ref: ModelRef = { providerID: model.providerId, modelID: model.id }
         const updated = addToRecentModels(ref, recentRefs)
         setRecentRefs(updated)
         saveRecentModels(updated)
+        saveLastModel(ref)
       }
     },
     [recentRefs],

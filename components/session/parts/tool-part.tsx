@@ -2,9 +2,6 @@
 
 import {
   BookOpen,
-  ChevronDown,
-  ChevronRight,
-  Code,
   FileEdit,
   FilePlus,
   FolderOpen,
@@ -15,13 +12,11 @@ import {
   Search,
   Terminal,
 } from 'lucide-react'
-import { memo, useState } from 'react'
+import { memo } from 'react'
 
 import { Markdown } from '@/components/ui/markdown'
 import type { ToolPart } from '@/lib/opencode'
 import { cn } from '@/lib/utils'
-
-import { ToolStatus } from './tool-status'
 
 interface ToolPartRendererProps {
   part: ToolPart
@@ -83,8 +78,8 @@ function normalizePath(input?: string): string {
   return input
 }
 
-// Tool icon mapping
-const TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+// Tool icon mapping (used by InlineTool component)
+const _TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   bash: Terminal,
   read: BookOpen,
   write: FilePlus,
@@ -144,56 +139,10 @@ function InlineTool({
   )
 }
 
-// Block tool display for rich output (bash, edit, write)
-function BlockTool({
-  part,
-  icon: IconComponent,
-  title,
-  children,
-  defaultExpanded = true,
-}: {
-  part: ToolPart
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  children: React.ReactNode
-  defaultExpanded?: boolean
-}) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
-  const isComplete = part.state.status === 'completed'
-  const isError = part.state.status === 'error'
-
-  return (
-    <div
-      className={cn(
-        'overflow-hidden rounded-lg border',
-        isError ? 'border-error/30 bg-error/5' : 'border-border bg-muted/20',
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => setIsExpanded((prev) => !prev)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40"
-      >
-        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        <IconComponent className="h-4 w-4 text-muted-foreground" />
-        <span
-          className={cn(
-            'font-mono text-xs',
-            isComplete ? 'text-muted-foreground' : 'text-foreground',
-          )}
-        >
-          {title}
-        </span>
-        <div className="ml-auto">
-          <ToolStatus state={part.state} />
-        </div>
-      </button>
-
-      {isExpanded ? (
-        <div className="border-t border-border bg-background p-3 text-sm">{children}</div>
-      ) : null}
-    </div>
-  )
+// Content-only tool display - NO borders, NO wrapper boxes
+// Parent PartItem handles the container styling
+function ToolContent({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-2 text-sm">{children}</div>
 }
 
 // Bash tool renderer
@@ -215,18 +164,16 @@ function BashTool({ part }: { part: ToolPart }) {
     )
   }
 
-  // Show block with output
+  // Show output directly - no wrapper box
   return (
-    <BlockTool part={part} icon={Terminal} title={input.description ?? 'Shell'}>
-      <div className="space-y-2">
-        <div className="font-mono text-xs">
-          <span className="text-muted-foreground">$</span> {input.command}
-        </div>
-        <pre className="max-h-96 max-w-full overflow-auto break-words rounded bg-muted/40 p-2 font-mono text-xs text-foreground">
-          {output.trim()}
-        </pre>
+    <ToolContent>
+      <div className="font-mono text-xs">
+        <span className="text-muted-foreground">$</span> {input.command}
       </div>
-    </BlockTool>
+      <pre className="max-h-96 max-w-full overflow-auto break-words rounded bg-muted/30 p-2 font-mono text-xs text-foreground">
+        {output.trim()}
+      </pre>
+    </ToolContent>
   )
 }
 
@@ -253,59 +200,54 @@ function EditTool({ part }: { part: ToolPart }) {
     )
   }
 
-  // Show block with diff
+  // Show diff directly
   return (
-    <BlockTool part={part} icon={FileEdit} title={`Edit ${normalizePath(input.filePath)}`}>
-      <div className="space-y-2">
-        {diff ? (
-          <pre className="max-h-96 max-w-full overflow-auto break-words rounded bg-muted/40 p-2 font-mono text-xs">
-            {diff.split('\n').map((line, lineIndex) => {
-              let className = 'text-foreground'
-              if (line.startsWith('+') && !line.startsWith('+++')) {
-                className = 'text-green-500 bg-green-500/10'
-              } else if (line.startsWith('-') && !line.startsWith('---')) {
-                className = 'text-red-500 bg-red-500/10'
-              } else if (line.startsWith('@@')) {
-                className = 'text-blue-500'
-              }
-              return (
-                <div key={`diff-${lineIndex}-${line.slice(0, 20)}`} className={className}>
-                  {line}
-                </div>
-              )
-            })}
+    <ToolContent>
+      {diff ? (
+        <pre className="max-h-96 max-w-full overflow-auto break-words rounded bg-muted/30 p-2 font-mono text-xs">
+          {diff.split('\n').map((line, lineIndex) => {
+            let className = 'text-foreground'
+            if (line.startsWith('+') && !line.startsWith('+++')) {
+              className = 'text-green-500 bg-green-500/10'
+            } else if (line.startsWith('-') && !line.startsWith('---')) {
+              className = 'text-red-500 bg-red-500/10'
+            } else if (line.startsWith('@@')) {
+              className = 'text-blue-500'
+            }
+            return (
+              <div key={`diff-${lineIndex}-${line.slice(0, 20)}`} className={className}>
+                {line}
+              </div>
+            )
+          })}
+        </pre>
+      ) : (
+        <>
+          <div className="text-xs text-muted-foreground">oldString:</div>
+          <pre className="max-w-full overflow-auto break-words rounded bg-red-500/10 p-2 font-mono text-xs text-red-500">
+            {input.oldString}
           </pre>
-        ) : (
-          <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">oldString:</div>
-            <pre className="max-w-full overflow-auto break-words rounded bg-red-500/10 p-2 font-mono text-xs text-red-500">
-              {input.oldString}
-            </pre>
-            <div className="text-xs text-muted-foreground">newString:</div>
-            <pre className="max-w-full overflow-auto break-words rounded bg-green-500/10 p-2 font-mono text-xs text-green-500">
-              {input.newString}
-            </pre>
-          </div>
-        )}
-        {metadata.diagnostics && Object.keys(metadata.diagnostics).length > 0 ? (
-          <div className="space-y-1 rounded border border-error/30 bg-error/5 p-2">
-            {Object.entries(metadata.diagnostics).flatMap(([file, diagnostics]) =>
-              diagnostics
-                .filter((d) => d.severity === 1)
-                .slice(0, 3)
-                .map((d, idx) => (
-                  <div
-                    key={`edit-${file}-${d.range.start.line}-${d.range.start.character}-${idx}`}
-                    className="text-xs text-error"
-                  >
-                    Error [{d.range.start.line + 1}:{d.range.start.character + 1}] {d.message}
-                  </div>
-                )),
-            )}
-          </div>
-        ) : null}
-      </div>
-    </BlockTool>
+          <div className="text-xs text-muted-foreground">newString:</div>
+          <pre className="max-w-full overflow-auto break-words rounded bg-green-500/10 p-2 font-mono text-xs text-green-500">
+            {input.newString}
+          </pre>
+        </>
+      )}
+      {metadata.diagnostics && Object.keys(metadata.diagnostics).length > 0 ? (
+        <div className="space-y-1 text-xs text-error">
+          {Object.entries(metadata.diagnostics).flatMap(([file, diagnostics]) =>
+            diagnostics
+              .filter((d) => d.severity === 1)
+              .slice(0, 3)
+              .map((d, idx) => (
+                <div key={`edit-${file}-${d.range.start.line}-${d.range.start.character}-${idx}`}>
+                  Error [{d.range.start.line + 1}:{d.range.start.character + 1}] {d.message}
+                </div>
+              )),
+          )}
+        </div>
+      ) : null}
+    </ToolContent>
   )
 }
 
@@ -326,37 +268,27 @@ function WriteTool({ part }: { part: ToolPart }) {
     )
   }
 
-  // Show block with content preview
+  // Show content directly
   return (
-    <BlockTool
-      part={part}
-      icon={FilePlus}
-      title={`Write ${normalizePath(input.filePath)}`}
-      defaultExpanded={false}
-    >
-      <div className="space-y-2">
-        <pre className="max-h-64 max-w-full overflow-auto break-words rounded bg-muted/40 p-2 font-mono text-xs">
-          {input.content}
-        </pre>
-        {metadata.diagnostics && Object.keys(metadata.diagnostics).length > 0 ? (
-          <div className="space-y-1 rounded border border-error/30 bg-error/5 p-2">
-            {Object.entries(metadata.diagnostics).flatMap(([file, diagnostics]) =>
-              diagnostics
-                .filter((d) => d.severity === 1)
-                .slice(0, 3)
-                .map((d, idx) => (
-                  <div
-                    key={`write-${file}-${d.range.start.line}-${d.range.start.character}-${idx}`}
-                    className="text-xs text-error"
-                  >
-                    Error [{d.range.start.line + 1}:{d.range.start.character + 1}] {d.message}
-                  </div>
-                )),
-            )}
-          </div>
-        ) : null}
-      </div>
-    </BlockTool>
+    <ToolContent>
+      <pre className="max-h-64 max-w-full overflow-auto break-words rounded bg-muted/30 p-2 font-mono text-xs">
+        {input.content}
+      </pre>
+      {metadata.diagnostics && Object.keys(metadata.diagnostics).length > 0 ? (
+        <div className="space-y-1 text-xs text-error">
+          {Object.entries(metadata.diagnostics).flatMap(([file, diagnostics]) =>
+            diagnostics
+              .filter((d) => d.severity === 1)
+              .slice(0, 3)
+              .map((d, idx) => (
+                <div key={`write-${file}-${d.range.start.line}-${d.range.start.character}-${idx}`}>
+                  Error [{d.range.start.line + 1}:{d.range.start.character + 1}] {d.message}
+                </div>
+              )),
+          )}
+        </div>
+      ) : null}
+    </ToolContent>
   )
 }
 
@@ -438,34 +370,27 @@ function TaskTool({ part }: { part: ToolPart }) {
   const metadata = getMetadata<TaskMetadata>(part.state)
   const summary = metadata.summary
 
-  // If we have a summary, show block with task details
+  // If we have a summary, show task details directly
   if (summary && summary.length > 0) {
     const current = [...summary].reverse().find((s) => s.state.status !== 'pending')
 
     return (
-      <BlockTool
-        part={part}
-        icon={GitBranch}
-        title={`${capitalize(input.subagent_type ?? 'Task')}: ${input.description}`}
-        defaultExpanded={false}
-      >
-        <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">{summary.length} tool calls</div>
-          {current ? (
-            <div
-              className={cn(
-                'text-xs',
-                current.state.status === 'error' ? 'text-error' : 'text-muted-foreground',
-              )}
-            >
-              {current.isSubagent ? '○ ' : '└ '}
-              {capitalize(current.tool)}{' '}
-              {current.state.status === 'completed' ? current.state.title : ''}
-              {current.isSubagent ? ' [subagent]' : ''}
-            </div>
-          ) : null}
-        </div>
-      </BlockTool>
+      <ToolContent>
+        <div className="text-xs text-muted-foreground">{summary.length} tool calls</div>
+        {current ? (
+          <div
+            className={cn(
+              'text-xs',
+              current.state.status === 'error' ? 'text-error' : 'text-muted-foreground',
+            )}
+          >
+            {current.isSubagent ? '○ ' : '└ '}
+            {capitalize(current.tool)}{' '}
+            {current.state.status === 'completed' ? current.state.title : ''}
+            {current.isSubagent ? ' [subagent]' : ''}
+          </div>
+        ) : null}
+      </ToolContent>
     )
   }
 
@@ -491,39 +416,30 @@ function TodoWriteTool({ part }: { part: ToolPart }) {
   }
 
   return (
-    <BlockTool part={part} icon={ListTodo} title="Todos" defaultExpanded={false}>
-      <div className="space-y-1">
-        {todos.map((todo) => (
-          <div key={todo.id} className="flex items-start gap-2 text-xs">
-            <span
-              className={cn(
-                'flex-shrink-0 rounded px-1.5 py-0.5 font-medium',
-                todo.status === 'completed'
-                  ? 'bg-success/20 text-success'
-                  : todo.status === 'in_progress'
-                    ? 'bg-primary/20 text-primary'
-                    : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {todo.status}
-            </span>
-            <span className="text-foreground">{todo.content}</span>
-          </div>
-        ))}
-      </div>
-    </BlockTool>
+    <ToolContent>
+      {todos.map((todo) => (
+        <div key={todo.id} className="flex items-start gap-2 text-xs">
+          <span
+            className={cn(
+              'flex-shrink-0 rounded px-1.5 py-0.5 font-medium',
+              todo.status === 'completed'
+                ? 'bg-success/20 text-success'
+                : todo.status === 'in_progress'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-muted text-muted-foreground',
+            )}
+          >
+            {todo.status}
+          </span>
+          <span className="text-foreground">{todo.content}</span>
+        </div>
+      ))}
+    </ToolContent>
   )
 }
 
-// Generic tool renderer for unknown tools
+// Generic tool renderer for unknown tools (no collapsible - parent handles that)
 function GenericTool({ part }: { part: ToolPart }) {
-  const [isExpanded, setIsExpanded] = useState(part.state.status !== 'completed')
-  const Icon = TOOL_ICONS[part.tool] ?? Code
-  const title =
-    part.state.status === 'completed' || part.state.status === 'running'
-      ? (part.state.title ?? part.tool)
-      : part.tool
-
   const output = part.state.status === 'completed' ? part.state.output : null
   const error = part.state.status === 'error' ? part.state.error : null
   const inputText =
@@ -532,54 +448,39 @@ function GenericTool({ part }: { part: ToolPart }) {
       : JSON.stringify(part.state.input, null, 2)
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
-      <button
-        type="button"
-        onClick={() => setIsExpanded((prev) => !prev)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40"
-      >
-        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <span className="font-mono text-xs text-foreground">{title}</span>
-        <ToolStatus state={part.state} />
-      </button>
+    <ToolContent>
+      <div>
+        <div className="mb-1 text-xs font-medium text-muted-foreground">Input</div>
+        <pre className="max-h-64 max-w-full overflow-auto break-words rounded bg-muted/30 p-2 text-xs">
+          {inputText}
+        </pre>
+      </div>
 
-      {isExpanded ? (
-        <div className="space-y-3 border-t border-border bg-background p-3 text-sm">
-          <div>
-            <div className="mb-1 text-xs font-medium text-muted-foreground">Input</div>
-            <pre className="max-h-64 max-w-full overflow-auto break-words rounded bg-muted/40 p-2 text-xs">
-              {inputText}
-            </pre>
-          </div>
-
-          {output ? (
-            <div>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">Output</div>
-              <Markdown content={output} className="text-sm" />
-            </div>
-          ) : null}
-
-          {error ? <div className="text-sm text-error">{error}</div> : null}
-
-          {'attachments' in part.state && part.state.attachments?.length ? (
-            <div className="flex flex-wrap gap-2">
-              {part.state.attachments.map((file) => (
-                <span
-                  key={file.id}
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded bg-secondary px-2 py-1 text-xs text-secondary-foreground',
-                    'max-w-[240px] truncate font-mono',
-                  )}
-                >
-                  {file.filename ?? file.url}
-                </span>
-              ))}
-            </div>
-          ) : null}
+      {output ? (
+        <div>
+          <div className="mb-1 text-xs font-medium text-muted-foreground">Output</div>
+          <Markdown content={output} className="text-sm" />
         </div>
       ) : null}
-    </div>
+
+      {error ? <div className="text-sm text-error">{error}</div> : null}
+
+      {'attachments' in part.state && part.state.attachments?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {part.state.attachments.map((file) => (
+            <span
+              key={file.id}
+              className={cn(
+                'inline-flex items-center gap-1 rounded bg-secondary px-2 py-1 text-xs text-secondary-foreground',
+                'max-w-[240px] truncate font-mono',
+              )}
+            >
+              {file.filename ?? file.url}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </ToolContent>
   )
 }
 

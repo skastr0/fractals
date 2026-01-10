@@ -1,12 +1,13 @@
 'use client'
 
-import { ChevronDown } from 'lucide-react'
 import { memo } from 'react'
+import type { ToolPart } from '@/lib/opencode'
 import type { PartItem as PartFlatItem } from '@/lib/session/flat-items'
 import { cn } from '@/lib/utils'
 
 import { PartPreview } from './part-preview'
 import { PartRenderer } from './part-renderer'
+import { ToolOutputRenderer } from './parts/tool-output'
 
 interface PartItemProps {
   item: PartFlatItem
@@ -16,46 +17,73 @@ interface PartItemProps {
 
 export const PartItem = memo(function PartItem({ item, isExpanded, onToggle }: PartItemProps) {
   const isTextPart = item.part.type === 'text'
+  const isToolPart = item.part.type === 'tool'
+  const isFilePart = item.part.type === 'file'
 
-  // For text parts when expanded, just show the content directly (no preview header)
-  // For other parts, show preview as collapsible header
+  // File parts: everything in the header, no expansion needed
+  if (isFilePart) {
+    return (
+      <div className={cn(item.isLastInTurn && 'mb-1')}>
+        <PartPreview part={item.part} isStreaming={item.isStreaming} />
+      </div>
+    )
+  }
+
+  // For text parts when expanded, show content directly with a collapse button
   if (isTextPart && isExpanded) {
     return (
-      <div className={cn('border-b border-border/20', item.isLastInTurn && 'mb-2')}>
+      <div className={cn(item.isLastInTurn && 'mb-1')}>
         <button
           type="button"
           onClick={onToggle}
-          className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs text-muted-foreground hover:bg-muted/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-expanded={isExpanded}
         >
-          <ChevronDown className="h-3 w-3" />
-          <span>Collapse</span>
+          <PartPreview part={item.part} isStreaming={item.isStreaming} isExpanded={isExpanded} />
         </button>
-        <div className="px-4 py-3 pl-10">
+        <div className="py-1 pl-6 pr-2">
           <PartRenderer part={item.part} isAssistant={item.isAssistant} />
         </div>
       </div>
     )
   }
 
+  // For tool parts - use streamlined rendering
+  if (isToolPart) {
+    return (
+      <div className={cn(item.isLastInTurn && 'mb-1')}>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-expanded={isExpanded}
+        >
+          <PartPreview part={item.part} isStreaming={item.isStreaming} isExpanded={isExpanded} />
+        </button>
+
+        {isExpanded && (
+          <div className="py-1 pl-6 pr-2">
+            <ToolOutputRenderer part={item.part as ToolPart} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Default: other part types
   return (
-    <div className={cn('border-b border-border/20', item.isLastInTurn && 'mb-2')}>
+    <div className={cn(item.isLastInTurn && 'mb-1')}>
       <button
         type="button"
         onClick={onToggle}
-        className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-expanded={isExpanded}
       >
-        <PartPreview
-          part={item.part}
-          isStreaming={item.isStreaming}
-          isExpanded={isExpanded}
-          className="pl-10"
-        />
+        <PartPreview part={item.part} isStreaming={item.isStreaming} isExpanded={isExpanded} />
       </button>
 
       {isExpanded && (
-        <div className="border-t border-border/10 bg-muted/20 px-4 py-3 pl-14">
+        <div className="py-1 pl-6 pr-2">
           <PartRenderer part={item.part} isAssistant={item.isAssistant} />
         </div>
       )}

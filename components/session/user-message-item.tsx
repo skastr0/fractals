@@ -12,14 +12,12 @@ interface UserMessageItemProps {
   item: UserMessageFlatItem
   sessionKey: string
   forkCount?: number
-  isActive?: boolean
 }
 
 export const UserMessageItem = memo(function UserMessageItem({
   item,
   sessionKey,
   forkCount = 0,
-  isActive,
 }: UserMessageItemProps) {
   const { message } = item
 
@@ -27,11 +25,9 @@ export const UserMessageItem = memo(function UserMessageItem({
     <div
       id={`message-${message.id}`}
       className={cn(
-        'flex items-start gap-3 px-4 py-3',
-        'border-b border-border/20',
-        'transition-colors',
-        isActive && 'bg-primary/5',
-        item.isFirstInTurn && 'pt-4',
+        'flex items-start gap-2 px-2 py-2',
+        'border-b border-border/10',
+        item.isFirstInTurn && 'pt-3',
       )}
     >
       {/* Avatar */}

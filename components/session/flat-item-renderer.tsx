@@ -12,7 +12,6 @@ interface FlatItemRendererProps {
   item: FlatItem
   sessionKey: string
   forkCount?: number
-  isActiveUserMessage?: boolean
   isExpanded: boolean
   onToggle: () => void
 }
@@ -21,20 +20,12 @@ export const FlatItemRenderer = memo(function FlatItemRenderer({
   item,
   sessionKey,
   forkCount,
-  isActiveUserMessage,
   isExpanded,
   onToggle,
 }: FlatItemRendererProps) {
   switch (item.type) {
     case 'user-message':
-      return (
-        <UserMessageItem
-          item={item}
-          sessionKey={sessionKey}
-          forkCount={forkCount}
-          isActive={isActiveUserMessage}
-        />
-      )
+      return <UserMessageItem item={item} sessionKey={sessionKey} forkCount={forkCount} />
 
     case 'assistant-header':
       return <AssistantHeaderItem item={item} />

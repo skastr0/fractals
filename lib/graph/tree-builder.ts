@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 import type { Session } from '@/lib/opencode'
-import type { SessionNodeData, TreeNode } from '@/types'
+import type { SessionNodeData, SessionStatus, TreeNode } from '@/types'
 
 export type SessionTreeNode = TreeNode<Session>
 
@@ -13,12 +13,27 @@ export interface TreeStats {
   subagentCount: number
 }
 
+// Priority order for statuses (higher = more important)
+const STATUS_PRIORITY: Record<SessionStatus, number> = {
+  busy: 4,
+  pending_permission: 3,
+  retry: 2,
+  idle: 1,
+}
+
+// Helper to check if a status is "active" (non-idle)
+export const isActiveStatus = (status: SessionStatus | undefined): boolean => {
+  return status !== undefined && status !== 'idle'
+}
+
 export interface BuildSessionTreeOptions {
   minDepth?: number
   maxDepth?: number
   previousIndex?: Map<string, SessionTreeNode>
   reuseNodes?: boolean
   onCircularReference?: (path: string[], sessionId: string) => void
+  /** Map of session key to status for sorting */
+  statusMap?: Map<string, SessionStatus>
 }
 
 export interface BuildSessionTreeResult {
@@ -103,8 +118,23 @@ export function buildSessionTree(
     }
   }
 
+  // Sort children: active status first, then by updated time
+  const statusMap = options.statusMap
   for (const list of childrenMap.values()) {
-    list.sort((a, b) => getUpdatedAt(b) - getUpdatedAt(a))
+    list.sort((a, b) => {
+      // First, sort by status priority (active sessions first)
+      if (statusMap) {
+        const statusA = statusMap.get(a.id) ?? 'idle'
+        const statusB = statusMap.get(b.id) ?? 'idle'
+        const priorityA = STATUS_PRIORITY[statusA]
+        const priorityB = STATUS_PRIORITY[statusB]
+        if (priorityA !== priorityB) {
+          return priorityB - priorityA // Higher priority first
+        }
+      }
+      // Then sort by updated time (most recent first)
+      return getUpdatedAt(b) - getUpdatedAt(a)
+    })
   }
 
   const index = new Map<string, SessionTreeNode>()
@@ -170,6 +200,7 @@ export interface TreeToFlowOptions {
   childCounts?: Map<string, number>
   collapsedIds?: Set<string>
   onToggleCollapse?: (sessionId: string) => void
+  toggleHandlers?: Map<string, () => void>
 }
 
 export function treeToFlowElements(
@@ -178,6 +209,25 @@ export function treeToFlowElements(
 ): { nodes: Node<SessionNodeData, 'session'>[]; edges: Edge[] } {
   const nodes: Node<SessionNodeData, 'session'>[] = []
   const edges: Edge[] = []
+
+  const getToggleHandler = (sessionId: string): (() => void) | undefined => {
+    if (!options.onToggleCollapse) {
+      return undefined
+    }
+
+    const handlers = options.toggleHandlers
+    if (handlers) {
+      const existing = handlers.get(sessionId)
+      if (existing) {
+        return existing
+      }
+      const handler = () => options.onToggleCollapse?.(sessionId)
+      handlers.set(sessionId, handler)
+      return handler
+    }
+
+    return () => options.onToggleCollapse?.(sessionId)
+  }
 
   const traverse = (node: SessionTreeNode, parentId?: string) => {
     nodes.push({
@@ -197,9 +247,7 @@ export function treeToFlowElements(
         updatedAt: node.data.time?.updated ?? node.data.time?.created ?? 0,
         childCount: options.childCounts?.get(node.data.id) ?? 0,
         isCollapsed: options.collapsedIds?.has(node.data.id) ?? false,
-        onToggleCollapse: options.onToggleCollapse
-          ? () => options.onToggleCollapse?.(node.data.id)
-          : undefined,
+        onToggleCollapse: getToggleHandler(node.data.id),
       },
     })
 

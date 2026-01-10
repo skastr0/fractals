@@ -12,11 +12,21 @@ export type Pane = {
   title: string
   widthPercentage: number
   components: ReactNode[]
+  /** Content to render in header after title */
+  headerContent?: ReactNode
+  /** Actions to render before close button */
+  headerActions?: ReactNode
 }
 
 export type PanesContextValue = Observable<{
   panes: Pane[]
-  openPane: (options: { type: PaneType; component: ReactNode; title?: string }) => void
+  openPane: (options: {
+    type: PaneType
+    component: ReactNode
+    title?: string
+    headerContent?: ReactNode
+    headerActions?: ReactNode
+  }) => void
   setPaneTitle: (id: PaneId, title: string) => void
   closePane: (id: PaneId) => void
   closeMostRecentPane: () => void
@@ -65,10 +75,14 @@ export function PanesProvider({ children }: { children: ReactNode }) {
       type,
       component,
       title,
+      headerContent,
+      headerActions,
     }: {
       type: PaneType
       component: ReactNode
       title?: string
+      headerContent?: ReactNode
+      headerActions?: ReactNode
     }) => {
       const currentPanes = state$.panes.peek()
       const defaultTitle = title ?? type.charAt(0).toUpperCase() + type.slice(1)
@@ -90,6 +104,8 @@ export function PanesProvider({ children }: { children: ReactNode }) {
           components: [component],
           widthPercentage: DEFAULT_PANE_WIDTH_PERCENTAGE,
           title: defaultTitle,
+          headerContent,
+          headerActions,
         }
 
         if (type === 'session') {
@@ -116,6 +132,8 @@ export function PanesProvider({ children }: { children: ReactNode }) {
         components: [component],
         widthPercentage: DEFAULT_PANE_WIDTH_PERCENTAGE,
         title: title ?? 'Tab',
+        headerContent,
+        headerActions,
       }
 
       state$.panes.set([...currentPanes, newPane])

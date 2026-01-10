@@ -1,24 +1,40 @@
 'use client'
 
 import { use$ } from '@legendapp/state/react'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { SessionGraph } from '@/components/graph'
+import { CommandPalette } from '@/components/layout/command-palette'
 import { PaneContainer } from '@/components/panes'
 import { usePanes } from '@/context/PanesProvider'
 
 import { Header } from './header'
 import { StatusBar } from './status-bar'
 
+type SessionGraphPaletteActions = {
+  onNewSession: () => void
+  onJumpToLatest: () => void
+  onClearSelection: () => void
+  selectedSessionKey: string | null
+}
+
 export function AppShell() {
   const panes$ = usePanes()
   const panes = use$(() => panes$.panes.get())
   const totalWidth = use$(() => panes$.getTotalPaneWidthPercentage())
   const [isWorkspaceMaximized, setIsWorkspaceMaximized] = useState(false)
+  const [paletteActions, setPaletteActions] = useState<SessionGraphPaletteActions | null>(null)
+
+  const handlePaletteActionsChange = useCallback((actions: SessionGraphPaletteActions | null) => {
+    setPaletteActions(actions)
+  }, [])
+
+  const handleNewSession = useCallback(() => {
+    paletteActions?.onNewSession()
+  }, [paletteActions])
 
   const hasPanes = panes.length > 0
   const workspaceWidth = hasPanes ? (isWorkspaceMaximized ? 100 : totalWidth) : 0
-  const graphOpacity = isWorkspaceMaximized ? 0.15 : hasPanes ? 0.7 : 1
   const mainClassName = `relative flex min-h-0 flex-1 overflow-hidden${hasPanes ? ' gap-2' : ''}`
 
   const handleToggleWorkspace = () => {
@@ -39,12 +55,9 @@ export function AppShell() {
         onToggleWorkspace={handleToggleWorkspace}
       />
       <main className={mainClassName}>
-        <div
-          className="min-h-0 min-w-0 flex-1 transition-opacity duration-300"
-          style={{ opacity: graphOpacity }}
-        >
+        <div className="min-h-0 min-w-0 flex-1">
           <div className="h-full w-full border-r border-border/40">
-            <SessionGraph />
+            <SessionGraph onPaletteActionsChange={handlePaletteActionsChange} />
           </div>
         </div>
 
@@ -57,6 +70,13 @@ export function AppShell() {
           </div>
         ) : null}
       </main>
+
+      <CommandPalette
+        onNewSession={handleNewSession}
+        onJumpToLatest={paletteActions?.onJumpToLatest}
+        onClearSelection={paletteActions?.onClearSelection}
+        selectedSessionKey={paletteActions?.selectedSessionKey}
+      />
 
       <StatusBar />
     </div>
