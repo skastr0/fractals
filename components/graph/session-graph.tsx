@@ -4,7 +4,7 @@ import type { Node } from '@xyflow/react'
 import { Background, PanOnScrollMode, ReactFlow, useReactFlow } from '@xyflow/react'
 import { Zap } from 'lucide-react'
 import type { MouseEvent } from 'react'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import '@xyflow/react/dist/style.css'
 
 import {
@@ -170,28 +170,39 @@ export function SessionGraph({ onPaletteActionsChange }: SessionGraphProps) {
     clearSelection()
   }, [clearSelection])
 
+  // Use refs to hold the latest callback values to avoid effect dependency cycles
+  const actionsRef = useRef({
+    onNewSession: handleQuickNewSession,
+    onJumpToLatest: focusMostRecent,
+    onClearSelection: clearSelection,
+  })
+
+  // Keep refs updated with latest callbacks
+  actionsRef.current = {
+    onNewSession: handleQuickNewSession,
+    onJumpToLatest: focusMostRecent,
+    onClearSelection: clearSelection,
+  }
+
   useEffect(() => {
     if (!onPaletteActionsChange) {
       return
     }
 
-    onPaletteActionsChange({
-      onNewSession: handleQuickNewSession,
-      onJumpToLatest: focusMostRecent,
-      onClearSelection: clearSelection,
+    // Create stable wrapper functions that delegate to refs
+    const actions: SessionGraphPaletteActions = {
+      onNewSession: () => actionsRef.current.onNewSession(),
+      onJumpToLatest: () => actionsRef.current.onJumpToLatest(),
+      onClearSelection: () => actionsRef.current.onClearSelection(),
       selectedSessionKey: selectedSessionId,
-    })
+    }
+
+    onPaletteActionsChange(actions)
 
     return () => {
       onPaletteActionsChange(null)
     }
-  }, [
-    clearSelection,
-    focusMostRecent,
-    handleQuickNewSession,
-    onPaletteActionsChange,
-    selectedSessionId,
-  ])
+  }, [onPaletteActionsChange, selectedSessionId])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
