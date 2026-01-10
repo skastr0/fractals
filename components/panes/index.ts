@@ -1,3 +1,4 @@
+export { DiffPane, DiffPaneHeaderActions, DiffPaneHeaderContent } from './diff-pane'
 export type { PaneProps } from './pane'
 export { Pane } from './pane'
 export { PaneContainer } from './pane-container'
