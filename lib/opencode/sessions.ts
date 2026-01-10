@@ -1,3 +1,4 @@
+import type { FileDiff } from '@/types'
 import { getDefaultClient, type Message, type Session } from './client'
 import { wrapSdkError } from './errors'
 
@@ -79,6 +80,17 @@ export const sessionService = {
       const client = getDefaultClient()
       const result = await client.session.messages({ sessionID: sessionId }, { throwOnError: true })
       return result.data.map((entry) => entry.info)
+    })
+  },
+
+  async getDiff(sessionId: string, directory: string): Promise<FileDiff[]> {
+    return withSdkError(async () => {
+      const client = getDefaultClient()
+      const result = await client.session.diff(
+        { sessionID: sessionId, directory },
+        { throwOnError: true },
+      )
+      return result.data ?? []
     })
   },
 

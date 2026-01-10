@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test'
 
-import { shouldFetchSessionMessages } from '../context/SyncProvider'
+import { shouldFetchSessionDiffs, shouldFetchSessionMessages } from '../context/SyncProvider'
 import type { Message } from '../lib/opencode'
 import { checkServerHealth } from '../lib/opencode/health'
+import type { FileDiff } from '../types'
 
 test('checkServerHealth returns connected details', async () => {
   const mockFetch: typeof fetch = async (input) => {
@@ -71,6 +72,56 @@ test('shouldFetchSessionMessages fetches when forced', () => {
     shouldFetchSessionMessages({
       existingMessages: hydratedMessages,
       needsHydration: false,
+      force: true,
+    }),
+  ).toEqual(true)
+})
+
+test('shouldFetchSessionDiffs skips when diffs exist', () => {
+  const diffs: FileDiff[] = [
+    { file: 'src/index.ts', before: '', after: '', additions: 2, deletions: 1 },
+  ]
+
+  expect(
+    shouldFetchSessionDiffs({
+      existingDiffs: diffs,
+      summary: { additions: 2, deletions: 1, files: 1 },
+    }),
+  ).toEqual(false)
+})
+
+test('shouldFetchSessionDiffs fetches when summary has changes', () => {
+  expect(
+    shouldFetchSessionDiffs({
+      existingDiffs: undefined,
+      summary: { additions: 3, deletions: 1, files: 1 },
+    }),
+  ).toEqual(true)
+})
+
+test('shouldFetchSessionDiffs skips when summary has no changes', () => {
+  expect(
+    shouldFetchSessionDiffs({
+      existingDiffs: undefined,
+      summary: { additions: 0, deletions: 0, files: 0 },
+    }),
+  ).toEqual(false)
+})
+
+test('shouldFetchSessionDiffs fetches when summary missing', () => {
+  expect(
+    shouldFetchSessionDiffs({
+      existingDiffs: undefined,
+      summary: undefined,
+    }),
+  ).toEqual(true)
+})
+
+test('shouldFetchSessionDiffs fetches when forced', () => {
+  expect(
+    shouldFetchSessionDiffs({
+      existingDiffs: [],
+      summary: { additions: 0, deletions: 0, files: 0 },
       force: true,
     }),
   ).toEqual(true)

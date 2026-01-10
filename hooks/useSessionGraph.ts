@@ -603,25 +603,8 @@ export function useSessionGraph() {
     selectedSessionId,
   ])
 
-  const edges = useMemo(() => {
-    // Use peek() for status lookup - edge animation isn't critical for reactivity
-    const statusSnapshot = state$.data.sessionStatus.peek() ?? {}
-
-    return layoutedEdges.map((edge) => {
-      const status = getStatusType(statusSnapshot[edge.target])
-      const isHighlighted =
-        highlightedSessions.has(edge.source) && highlightedSessions.has(edge.target)
-
-      return {
-        ...edge,
-        animated: status === 'busy',
-        style: {
-          stroke: isHighlighted ? 'hsl(var(--primary))' : 'hsl(var(--border))',
-          strokeWidth: isHighlighted ? 2 : 1,
-        },
-      }
-    })
-  }, [highlightedSessions, layoutedEdges, state$])
+  // Edges disabled - tree layout makes hierarchy clear without connectors
+  const edges: typeof layoutedEdges = []
 
   return {
     nodes,
