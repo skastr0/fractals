@@ -32,7 +32,6 @@ import { cn } from '@/lib/utils'
 
 interface PartPreviewProps {
   part: Part
-  isStreaming?: boolean
   isExpanded?: boolean
   className?: string
 }
@@ -99,7 +98,6 @@ interface PreviewLayoutProps {
   label?: string
   preview: string
   badge?: string
-  isStreaming?: boolean
   isExpanded?: boolean
   className?: string
 }
@@ -110,7 +108,6 @@ function PreviewLayout({
   label,
   preview,
   badge,
-  isStreaming,
   isExpanded,
   className,
 }: PreviewLayoutProps) {
@@ -140,10 +137,6 @@ function PreviewLayout({
       {badge ? (
         <span className="flex-shrink-0 font-mono text-[9px] text-muted-foreground">{badge}</span>
       ) : null}
-
-      {isStreaming ? (
-        <span className="h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full bg-green-500" />
-      ) : null}
     </div>
   )
 }
@@ -152,18 +145,10 @@ function PreviewLayout({
 // Part-Specific Preview Generators
 // -----------------------------------------------------------------------------
 
-function TextPreview({
-  part,
-  isStreaming,
-  isExpanded,
-}: {
-  part: TextPart
-  isStreaming?: boolean
-  isExpanded?: boolean
-}) {
+function TextPreview({ part, isExpanded }: { part: TextPart; isExpanded?: boolean }) {
   if (part.ignored) return null
   const isEmpty = !part.text.trim()
-  if (isEmpty && !isStreaming) return null
+  if (isEmpty) return null
 
   const preview = truncate(part.text, MAX_TEXT_LENGTH)
 
@@ -172,22 +157,13 @@ function TextPreview({
       icon={MessageSquare}
       label={part.synthetic ? 'System' : undefined}
       preview={preview || 'Waiting for response…'}
-      isStreaming={isStreaming}
       isExpanded={isExpanded}
       iconClassName={part.synthetic ? 'text-muted-foreground/60' : undefined}
     />
   )
 }
 
-function ReasoningPreview({
-  part,
-  isStreaming,
-  isExpanded,
-}: {
-  part: ReasoningPart
-  isStreaming?: boolean
-  isExpanded?: boolean
-}) {
+function ReasoningPreview({ part, isExpanded }: { part: ReasoningPart; isExpanded?: boolean }) {
   const preview = truncate(part.text, MAX_REASONING_LENGTH)
 
   return (
@@ -196,26 +172,16 @@ function ReasoningPreview({
       iconClassName="text-primary"
       label="Thinking"
       preview={preview || 'Processing…'}
-      isStreaming={isStreaming}
       isExpanded={isExpanded}
     />
   )
 }
 
-function ToolPreview({
-  part,
-  isStreaming,
-  isExpanded,
-}: {
-  part: ToolPart
-  isStreaming?: boolean
-  isExpanded?: boolean
-}) {
+function ToolPreview({ part, isExpanded }: { part: ToolPart; isExpanded?: boolean }) {
   const Icon = TOOL_ICONS[part.tool] ?? Terminal
-  const isPending = part.state.status === 'pending'
-  const isRunning = part.state.status === 'running'
   const isError = part.state.status === 'error'
   const isCompleted = part.state.status === 'completed'
+  const isRunning = part.state.status === 'running'
 
   // Get tool-specific preview
   const { label, preview, badge } = getToolPreview(part)
@@ -231,7 +197,6 @@ function ToolPreview({
       label={label}
       preview={preview}
       badge={badge}
-      isStreaming={isStreaming || isRunning || isPending}
       isExpanded={isExpanded}
     />
   )
@@ -454,7 +419,6 @@ function CompactionPreview({ part, isExpanded }: { part: CompactionPart; isExpan
 
 export const PartPreview = memo(function PartPreview({
   part,
-  isStreaming,
   isExpanded,
   className,
 }: PartPreviewProps) {
@@ -462,21 +426,21 @@ export const PartPreview = memo(function PartPreview({
     case 'text':
       return (
         <div className={className}>
-          <TextPreview part={part} isStreaming={isStreaming} isExpanded={isExpanded} />
+          <TextPreview part={part} isExpanded={isExpanded} />
         </div>
       )
 
     case 'reasoning':
       return (
         <div className={className}>
-          <ReasoningPreview part={part} isStreaming={isStreaming} isExpanded={isExpanded} />
+          <ReasoningPreview part={part} isExpanded={isExpanded} />
         </div>
       )
 
     case 'tool':
       return (
         <div className={className}>
-          <ToolPreview part={part} isStreaming={isStreaming} isExpanded={isExpanded} />
+          <ToolPreview part={part} isExpanded={isExpanded} />
         </div>
       )
 

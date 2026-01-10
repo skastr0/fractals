@@ -342,7 +342,7 @@ export const SessionNode = memo(function SessionNode({
           <span>{childCount}</span>
         </button>
       ) : null}
-      <Handle type="source" position={Position.Bottom} className={handleClass} />
+      <Handle type="source" position={Position.Right} className={handleClass} />
     </div>
   )
 })
