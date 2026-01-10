@@ -24,13 +24,13 @@ export const PartItem = memo(function PartItem({ item, isExpanded, onToggle }: P
   if (isFilePart) {
     return (
       <div className={cn(item.isLastInTurn && 'mb-1')}>
-        <PartPreview part={item.part} isStreaming={item.isStreaming} />
+        <PartPreview part={item.part} />
       </div>
     )
   }
 
-  // For text parts when expanded, show content directly with a collapse button
-  if (isTextPart && isExpanded) {
+  // Text parts (both user and assistant) - ALL are collapsible
+  if (isTextPart) {
     return (
       <div className={cn(item.isLastInTurn && 'mb-1')}>
         <button
@@ -39,11 +39,13 @@ export const PartItem = memo(function PartItem({ item, isExpanded, onToggle }: P
           className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-expanded={isExpanded}
         >
-          <PartPreview part={item.part} isStreaming={item.isStreaming} isExpanded={isExpanded} />
+          <PartPreview part={item.part} isExpanded={isExpanded} />
         </button>
-        <div className="py-1 pl-6 pr-2">
-          <PartRenderer part={item.part} isAssistant={item.isAssistant} />
-        </div>
+        {isExpanded && (
+          <div className="py-1 pl-6 pr-2">
+            <PartRenderer part={item.part} isAssistant={item.isAssistant} />
+          </div>
+        )}
       </div>
     )
   }
@@ -58,7 +60,7 @@ export const PartItem = memo(function PartItem({ item, isExpanded, onToggle }: P
           className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-expanded={isExpanded}
         >
-          <PartPreview part={item.part} isStreaming={item.isStreaming} isExpanded={isExpanded} />
+          <PartPreview part={item.part} isExpanded={isExpanded} />
         </button>
 
         {isExpanded && (
@@ -70,7 +72,7 @@ export const PartItem = memo(function PartItem({ item, isExpanded, onToggle }: P
     )
   }
 
-  // Default: other part types
+  // Default: other part types (reasoning, patch, agent, subtask, etc.) - ALL collapsible
   return (
     <div className={cn(item.isLastInTurn && 'mb-1')}>
       <button
@@ -79,7 +81,7 @@ export const PartItem = memo(function PartItem({ item, isExpanded, onToggle }: P
         className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-expanded={isExpanded}
       >
-        <PartPreview part={item.part} isStreaming={item.isStreaming} isExpanded={isExpanded} />
+        <PartPreview part={item.part} isExpanded={isExpanded} />
       </button>
 
       {isExpanded && (
