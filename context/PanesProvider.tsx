@@ -31,7 +31,12 @@ export type PanesContextValue = Observable<{
   closePane: (id: PaneId) => void
   closeMostRecentPane: () => void
   canOpenNewPane: (type?: PaneType) => boolean
-  stackPane: (id: PaneId, component: ReactNode) => void
+  stackPane: (
+    id: PaneId,
+    component: ReactNode,
+    headerContent?: ReactNode,
+    headerActions?: ReactNode,
+  ) => void
   unstackPaneOnce: (id: PaneId) => void
   getTotalPaneWidthPercentage: () => number
 }>
@@ -166,7 +171,12 @@ export function PanesProvider({ children }: { children: ReactNode }) {
       // Inline the closePane logic to avoid observable method call
       state$.panes.set(currentPanes.filter((pane) => pane.id !== mostRecentPane.id))
     },
-    stackPane: (id: PaneId, component: ReactNode) => {
+    stackPane: (
+      id: PaneId,
+      component: ReactNode,
+      headerContent?: ReactNode,
+      headerActions?: ReactNode,
+    ) => {
       const currentPanes = state$.panes.peek()
       const paneIndex = currentPanes.findIndex((pane) => pane.id === id)
       if (paneIndex < 0) {
@@ -177,6 +187,13 @@ export function PanesProvider({ children }: { children: ReactNode }) {
         return
       }
       pane.components.set([...pane.components.peek(), component])
+      // Update header content/actions if provided (critical for reactivity when switching sessions)
+      if (headerContent !== undefined) {
+        pane.headerContent.set(headerContent)
+      }
+      if (headerActions !== undefined) {
+        pane.headerActions.set(headerActions)
+      }
     },
     unstackPaneOnce: (id: PaneId) => {
       const currentPanes = state$.panes.peek()

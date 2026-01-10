@@ -89,7 +89,7 @@ export function SessionGraph({ onPaletteActionsChange }: SessionGraphProps) {
         const hasSessionPane = panes$.panes.get().some((pane) => pane.id === 'session')
 
         if (hasSessionPane) {
-          panes$.stackPane('session', paneContent)
+          panes$.stackPane('session', paneContent, headerContent, headerActions)
           panes$.setPaneTitle('session', 'New Session')
         } else {
           panes$.openPane({
@@ -151,7 +151,7 @@ export function SessionGraph({ onPaletteActionsChange }: SessionGraphProps) {
       const hasSessionPane = panes$.panes.get().some((pane) => pane.id === 'session')
 
       if (hasSessionPane) {
-        panes$.stackPane('session', paneContent)
+        panes$.stackPane('session', paneContent, headerContent, headerActions)
         panes$.setPaneTitle('session', title)
       } else {
         panes$.openPane({

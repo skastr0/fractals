@@ -107,7 +107,7 @@ export function Header({
         const hasSessionPane = panes$.panes.get().some((pane) => pane.id === 'session')
 
         if (hasSessionPane) {
-          panes$.stackPane('session', paneContent)
+          panes$.stackPane('session', paneContent, headerContent, headerActions)
           panes$.setPaneTitle('session', paneTitle)
         } else {
           panes$.openPane({

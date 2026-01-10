@@ -65,7 +65,7 @@ export const ForkControls = memo(function ForkControls({
       const hasSessionPane = panes$.panes.get().some((pane) => pane.id === 'session')
 
       if (hasSessionPane) {
-        panes$.stackPane('session', paneContent)
+        panes$.stackPane('session', paneContent, headerContent, headerActions)
         panes$.setPaneTitle('session', title)
       } else {
         panes$.openPane({
