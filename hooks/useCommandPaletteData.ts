@@ -1,16 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-
+import { useCommands } from '@/hooks/useCommands'
 import {
   buildCommandPaletteSections,
   buildCommandRegistry,
-  filterCommandPaletteSections,
-  flattenCommandPaletteSections,
   type CommandPaletteEntry,
   type CommandPaletteSection,
+  filterCommandPaletteSections,
+  flattenCommandPaletteSections,
 } from '@/lib/commands'
-import { useCommands } from '@/hooks/useCommands'
 import type { LocalCommandDefinition, SdkCommandDefinition } from '@/types'
 
 const RECENT_COMMANDS_KEY = 'opencode-tree-ui:recent-commands'

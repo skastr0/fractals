@@ -10,7 +10,7 @@ import { usePanes } from '@/context/PanesProvider'
 import { useSessionFilter } from '@/context/SessionFilterProvider'
 import { useCommandExecutor } from '@/hooks/useCommandExecutor'
 import { useCommandPaletteData } from '@/hooks/useCommandPaletteData'
-import { createLocalCommandRegistry, type CommandPaletteEntry } from '@/lib/commands'
+import { type CommandPaletteEntry, createLocalCommandRegistry } from '@/lib/commands'
 import { cn } from '@/lib/utils'
 
 interface CommandPaletteProps {
