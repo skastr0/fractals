@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useSync } from '@/context/SyncProvider'
+import { usePartsForMessages } from '@/hooks/useParts'
 import { useSession } from '@/hooks/useSession'
 import { useSessions } from '@/hooks/useSessions'
 import { type FlatItem, flattenMessages } from '@/lib/session/flat-items'
@@ -16,104 +17,68 @@ interface MessageListProps {
 }
 
 export const MessageList = memo(function MessageList({ sessionKey }: MessageListProps) {
-  const { messages, getParts } = useSession(sessionKey)
+  const { messages } = useSession(sessionKey)
   const { sessions: childSessions } = useSessions({ parentId: sessionKey })
   const { state$ } = useSync()
 
+  // Extract all message IDs for reactive parts subscription
+  const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
+  // Subscribe to parts reactively - this will trigger re-renders when parts update (streaming!)
+  const getParts = usePartsForMessages(messageIds)
+
   const scrollRef = useRef<HTMLDivElement>(null)
-  const prevStreamingIdsRef = useRef<Set<string>>(new Set())
 
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isPinned, setIsPinned] = useState(true)
 
-  // Track expanded items by ID (user explicitly expanded)
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  // Track collapsed items by ID (user explicitly collapsed)
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
+  // Simple expansion state: user overrides (true = force expanded, false = force collapsed)
+  // If not in map, use default behavior
+  const [userOverrides, setUserOverrides] = useState<Map<string, boolean>>(new Map())
 
   // Helper to check if a part should be expanded by default
   const shouldExpandByDefault = useCallback((item: FlatItem): boolean => {
     if (item.type !== 'part') return false
-    // Patches are collapsed by default (they're internal checkpoints)
-    if (item.part.type === 'patch') return false
-    // Non-synthetic text (agent responses) are expanded by default
+
+    // TEXT PARTS (messages) - expanded by default
     if (item.part.type === 'text' && !item.isSynthetic) return true
+
+    // EDIT/WRITE tools - expanded by default (user wants to see diffs)
+    if (item.part.type === 'tool') {
+      const tool = (item.part as { tool?: string }).tool
+      if (tool === 'edit' || tool === 'write') return true
+    }
+
+    // Everything else COLLAPSED by default
     return false
   }, [])
 
-  // Toggle expansion for an item
-  const toggleExpand = useCallback(
-    (id: string, item: FlatItem) => {
-      const isDefaultExpanded = shouldExpandByDefault(item)
-
-      if (isDefaultExpanded) {
-        // Item is expanded by default, so toggle means collapse
-        setCollapsedIds((prev) => {
-          const next = new Set(prev)
-          if (next.has(id)) {
-            next.delete(id) // Was collapsed, now expand (back to default)
-          } else {
-            next.add(id) // Collapse it
-          }
-          return next
-        })
-        // Ensure it's not in expandedIds
-        setExpandedIds((prev) => {
-          if (prev.has(id)) {
-            const next = new Set(prev)
-            next.delete(id)
-            return next
-          }
-          return prev
-        })
-      } else {
-        // Item is collapsed by default, so toggle means expand
-        setExpandedIds((prev) => {
-          const next = new Set(prev)
-          if (next.has(id)) {
-            next.delete(id) // Was expanded, now collapse (back to default)
-          } else {
-            next.add(id) // Expand it
-          }
-          return next
-        })
-        // Ensure it's not in collapsedIds
-        setCollapsedIds((prev) => {
-          if (prev.has(id)) {
-            const next = new Set(prev)
-            next.delete(id)
-            return next
-          }
-          return prev
-        })
-      }
-    },
-    [shouldExpandByDefault],
-  )
+  // Toggle expansion for an item - simple flip
+  const toggleExpand = useCallback((id: string, currentlyExpanded: boolean) => {
+    setUserOverrides((prev) => {
+      const next = new Map(prev)
+      next.set(id, !currentlyExpanded)
+      return next
+    })
+  }, [])
 
   // Check if an item is expanded
-  const isExpanded = useCallback(
-    (item: FlatItem) => {
+  const getIsExpanded = useCallback(
+    (item: FlatItem): boolean => {
       // Streaming items are always expanded
       if (item.type === 'part' && item.isStreaming) {
         return true
       }
-      // Check if user has explicitly expanded this item
-      if (expandedIds.has(item.id)) {
-        return true
+
+      // Check for user override
+      const override = userOverrides.get(item.id)
+      if (override !== undefined) {
+        return override
       }
-      // Check if user has explicitly collapsed this item
-      if (collapsedIds.has(item.id)) {
-        return false
-      }
-      // DEFAULT EXPANDED: Patches/diffs and non-synthetic text
-      if (shouldExpandByDefault(item)) {
-        return true
-      }
-      // Everything else collapsed by default
-      return false
+
+      // Use default behavior
+      return shouldExpandByDefault(item)
     },
-    [expandedIds, collapsedIds, shouldExpandByDefault],
+    [userOverrides, shouldExpandByDefault],
   )
 
   // Memoize sorted messages once
@@ -127,31 +92,6 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
     () => flattenMessages({ messages: sortedMessages, getParts }),
     [sortedMessages, getParts],
   )
-
-  // When streaming ends, add item to expandedIds so it stays expanded
-  useEffect(() => {
-    const currentStreamingIds = new Set(
-      flatItems.filter((item) => item.type === 'part' && item.isStreaming).map((item) => item.id),
-    )
-
-    // Find items that WERE streaming but are no longer streaming
-    const endedStreamingIds = [...prevStreamingIdsRef.current].filter(
-      (id) => !currentStreamingIds.has(id),
-    )
-
-    // Add them to expandedIds so they stay expanded
-    if (endedStreamingIds.length > 0) {
-      setExpandedIds((prev) => {
-        const next = new Set(prev)
-        for (const id of endedStreamingIds) {
-          next.add(id)
-        }
-        return next
-      })
-    }
-
-    prevStreamingIdsRef.current = currentStreamingIds
-  }, [flatItems])
 
   // Compute fork counts - count child sessions that reference each message
   const forkCounts = useMemo(() => {
@@ -254,14 +194,16 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
               const forkCount =
                 item.type === 'user-message' ? (forkCounts.get(item.message.id) ?? 0) : undefined
 
+              const expanded = getIsExpanded(item)
+
               return (
                 <div key={item.id} data-index={virtualRow.index} ref={virtualizer.measureElement}>
                   <FlatItemRenderer
                     item={item}
                     sessionKey={sessionKey}
                     forkCount={forkCount}
-                    isExpanded={isExpanded(item)}
-                    onToggle={() => toggleExpand(item.id, item)}
+                    isExpanded={expanded}
+                    onToggle={() => toggleExpand(item.id, expanded)}
                   />
                 </div>
               )

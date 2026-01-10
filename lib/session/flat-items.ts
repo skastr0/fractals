@@ -48,9 +48,24 @@ const isAssistantMessage = (message: Message): message is AssistantMessage =>
 
 type PartWithTime = Part & { time?: { end?: number } }
 type TextPartExtended = Part & { synthetic?: boolean; ignored?: boolean }
+type ToolPartExtended = Part & { state?: { status?: string } }
 
 const getPartEndTime = (part: Part): number | undefined => {
   return (part as PartWithTime).time?.end
+}
+
+// Check if a part is still streaming (not finished)
+const isPartStreaming = (part: Part): boolean => {
+  // Tool parts: check state.status instead of time.end
+  if (part.type === 'tool') {
+    const toolPart = part as ToolPartExtended
+    const status = toolPart.state?.status
+    // Streaming if pending or running
+    return status === 'pending' || status === 'running'
+  }
+
+  // All other parts: check time.end
+  return getPartEndTime(part) === undefined
 }
 
 const isPartSynthetic = (part: Part): boolean => {
@@ -138,7 +153,7 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
           type: 'part',
           part,
           isAssistant: false,
-          isStreaming: !getPartEndTime(part),
+          isStreaming: isPartStreaming(part),
           isSynthetic: isPartSynthetic(part),
         })
       }
@@ -167,7 +182,7 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
             type: 'part',
             part,
             isAssistant: true,
-            isStreaming: !getPartEndTime(part),
+            isStreaming: isPartStreaming(part),
             isSynthetic: isPartSynthetic(part),
           })
         }
