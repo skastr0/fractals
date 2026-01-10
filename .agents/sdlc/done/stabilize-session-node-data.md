@@ -6,8 +6,8 @@ id: stabilize-session-node-data
 Breakdown from performance-and-message-rendering-overhaul to reduce ReactFlow node re-renders from unstable `data` objects.
 
 ## Acceptance Criteria
-- [ ] AC-1: Node `data` references are reused when session attributes have not changed.
-- [ ] AC-2: `components/graph/session-node.tsx` avoids re-rendering for unrelated updates.
+- [x] AC-1: Node `data` references are reused when session attributes have not changed.
+- [x] AC-2: `components/graph/session-node.tsx` avoids re-rendering for unrelated updates.
 
 ## Technical Notes
 - Target files: `lib/graph/tree-builder.ts`, `hooks/useSessionGraph.ts`, `components/graph/session-node.tsx`.
@@ -19,3 +19,6 @@ none
 
 ## Time Estimate
 predicted_hours: 3
+
+## Notes
+2026-01-05: Reused session node data objects and stabilized collapse handlers.

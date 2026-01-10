@@ -4,11 +4,11 @@
 The project selector dropdown relies on a manual document handler and currently fails to dismiss reliably. We need consistent outside-click and keyboard dismissal without breaking multi-select behavior.
 
 ## Acceptance Criteria
-- [ ] Clicking anywhere outside the ProjectSelector closes the dropdown, clears the search term, and restores the selection label in the input.
-- [ ] Clicking inside the selector (input, list items, scrolling) keeps the dropdown open; multi-select toggles continue to work.
-- [ ] Pressing Escape while the input is focused closes the dropdown, clears the search term, and leaves focus on the input.
-- [ ] The “Add project” button still opens its dialog and the dropdown does not remain open behind it.
-- [ ] Event listeners are attached once and removed on unmount; no console errors or stuck-open states.
+- [x] Clicking anywhere outside the ProjectSelector closes the dropdown, clears the search term, and restores the selection label in the input.
+- [x] Clicking inside the selector (input, list items, scrolling) keeps the dropdown open; multi-select toggles continue to work.
+- [x] Pressing Escape while the input is focused closes the dropdown, clears the search term, and leaves focus on the input.
+- [x] The “Add project” button still opens its dialog and the dropdown does not remain open behind it.
+- [x] Event listeners are attached once and removed on unmount; no console errors or stuck-open states.
 
 ## Technical Implementation Notes
 - `components/project-selector.tsx`: tighten the document handler (consider `pointerdown` with capture and `event.composedPath()`).
@@ -23,3 +23,4 @@ None
 
 ## Notes
 2026-01-05: Created from commit plan.
+2026-01-05: Updated dropdown dismissal handling and Escape behavior.

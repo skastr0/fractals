@@ -59,13 +59,13 @@ MessageList (virtualized over ALL items)
 
 ## Acceptance Criteria
 
-- [ ] AC-1: Initial session list loads instantly (<100ms for 100+ sessions)
-- [ ] AC-2: Clicking a session node opens the pane instantly (<100ms)
-- [ ] AC-3: Message list with 1000+ parts scrolls at 60fps
-- [ ] AC-4: Parts are collapsed by default with preview text
-- [ ] AC-5: Expanding a part lazy-loads the heavy content
-- [ ] AC-6: Streaming content displays without layout shift
-- [ ] AC-7: TypewriterEffect is removed
+- [x] AC-1: Initial session list loads instantly (<100ms for 100+ sessions)
+- [x] AC-2: Clicking a session node opens the pane instantly (<100ms)
+- [x] AC-3: Message list with 1000+ parts scrolls at 60fps
+- [x] AC-4: Parts are collapsed by default with preview text
+- [x] AC-5: Expanding a part lazy-loads the heavy content
+- [x] AC-6: Streaming content displays without layout shift
+- [x] AC-7: TypewriterEffect is removed
 
 ## Technical Notes
 
