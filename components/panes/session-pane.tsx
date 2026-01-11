@@ -387,12 +387,17 @@ export function SessionPaneHeaderActions({ sessionKey }: { sessionKey: string })
  * The header is rendered by the Pane wrapper using SessionPaneHeaderContent/Actions
  */
 export function SessionPane({ sessionKey, autoFocus }: SessionPaneProps) {
-  const { syncSession, syncSessionDiffs } = useSync()
+  const { syncSession, syncSessionDiffs, setSessionActive } = useSync()
 
   useEffect(() => {
+    setSessionActive(sessionKey, true)
     void syncSession(sessionKey)
     void syncSessionDiffs(sessionKey)
-  }, [sessionKey, syncSession, syncSessionDiffs])
+
+    return () => {
+      setSessionActive(sessionKey, false)
+    }
+  }, [sessionKey, setSessionActive, syncSession, syncSessionDiffs])
 
   return (
     <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden">

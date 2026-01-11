@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useMemo, useRef } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -13,6 +13,8 @@ interface StreamingMarkdownProps {
   /** Hints that content is actively streaming - enables block repair */
   isStreaming?: boolean
 }
+
+const STREAMING_THROTTLE_MS = 120
 
 /**
  * Repair incomplete markdown for valid parsing during streaming.
@@ -70,16 +72,46 @@ function repairMarkdown(content: string, isStreaming: boolean): string {
  */
 export const StreamingMarkdown = memo(
   function StreamingMarkdown({ content, className, isStreaming = false }: StreamingMarkdownProps) {
-    // Track previous content length for change detection
-    const prevLengthRef = useRef(0)
+    const [throttledContent, setThrottledContent] = useState(content)
+    const latestContentRef = useRef(content)
+    const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    useEffect(() => {
+      latestContentRef.current = content
+
+      if (!isStreaming) {
+        if (throttleTimerRef.current) {
+          clearTimeout(throttleTimerRef.current)
+          throttleTimerRef.current = null
+        }
+        setThrottledContent(content)
+        return
+      }
+
+      if (throttleTimerRef.current) {
+        return
+      }
+
+      throttleTimerRef.current = setTimeout(() => {
+        throttleTimerRef.current = null
+        setThrottledContent(latestContentRef.current)
+      }, STREAMING_THROTTLE_MS)
+    }, [content, isStreaming])
+
+    useEffect(() => {
+      return () => {
+        if (throttleTimerRef.current) {
+          clearTimeout(throttleTimerRef.current)
+          throttleTimerRef.current = null
+        }
+      }
+    }, [])
 
     // Memoize the repaired content
-    // Only recompute when content changes
+    // Only recompute when throttled content or streaming state changes
     const repairedContent = useMemo(() => {
-      const repaired = repairMarkdown(content, isStreaming)
-      prevLengthRef.current = content.length
-      return repaired
-    }, [content, isStreaming])
+      return repairMarkdown(throttledContent, isStreaming)
+    }, [throttledContent, isStreaming])
 
     const markdownComponents = useMemo(
       () => createMarkdownComponents({ enableHighlight: !isStreaming }),

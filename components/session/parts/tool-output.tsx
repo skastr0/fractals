@@ -8,6 +8,7 @@ import type { ToolPart } from '@/lib/opencode'
 
 interface ToolOutputRendererProps {
   part: ToolPart
+  isExpanded?: boolean
 }
 
 // Metadata type helpers
@@ -23,6 +24,22 @@ interface EditMetadata {
   >
 }
 
+function getDiffStats(diff: string): string {
+  let additions = 0
+  let deletions = 0
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('+') && !line.startsWith('+++')) additions++
+    if (line.startsWith('-') && !line.startsWith('---')) deletions++
+  }
+  if (additions === 0 && deletions === 0) return ''
+  return `+${additions} -${deletions}`
+}
+
+function formatDiffSummary(diff: string): string {
+  const stats = getDiffStats(diff)
+  return stats ? `Diff ready (${stats})` : 'Diff ready'
+}
+
 /**
  * ToolOutputRenderer - Renders ONLY the output/result content.
  * No boxes, no borders, no duplicate information.
@@ -31,6 +48,7 @@ interface EditMetadata {
  */
 export const ToolOutputRenderer = memo(function ToolOutputRenderer({
   part,
+  isExpanded = true,
 }: ToolOutputRendererProps) {
   const { tool, state } = part
 
@@ -67,6 +85,14 @@ export const ToolOutputRenderer = memo(function ToolOutputRenderer({
 
     case 'edit': {
       const diff = metadata.diff
+      if (!isExpanded) {
+        if (!diff) return null
+        return (
+          <span className="text-xs text-muted-foreground">
+            {formatDiffSummary(diff)}. Expand to view diff.
+          </span>
+        )
+      }
       if (!diff) {
         // Fallback: show old/new strings
         const oldStr = input.oldString as string | undefined

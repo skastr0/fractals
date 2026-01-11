@@ -20,6 +20,11 @@ import { useProject } from './ProjectProvider'
 const RECONNECT_DELAY_MS = 5000
 const SESSION_LIST_CONCURRENCY = 3
 
+// Session cache settings (tune to trade memory vs preview availability)
+const SESSION_CACHE_MAX_SESSIONS = 30
+const SESSION_CACHE_TTL_MS = 10 * 60 * 1000
+const SESSION_CACHE_SWEEP_INTERVAL_MS = 60 * 1000
+
 // Filter out temporary/sandbox directories - same as ProjectProvider
 const EXCLUDE_PATTERNS = [
   /\/private\/var\//,
@@ -133,6 +138,10 @@ export interface SyncSessionDiffOptions {
 
 type SessionSummary = NonNullable<Session['summary']>
 
+type SessionCacheEntry = {
+  lastAccess: number
+}
+
 export const shouldFetchSessionMessages = ({
   existingMessages,
   needsHydration,
@@ -167,6 +176,57 @@ export const shouldFetchSessionDiffs = ({
   return summary.files > 0 || summary.additions > 0 || summary.deletions > 0
 }
 
+export const selectSessionEvictions = ({
+  entries,
+  activeSessions,
+  maxSessions,
+  ttlMs,
+  now,
+}: {
+  entries: Array<[string, SessionCacheEntry]>
+  activeSessions: Set<string>
+  maxSessions: number
+  ttlMs: number
+  now: number
+}): string[] => {
+  const evictions = new Set<string>()
+
+  for (const [key, entry] of entries) {
+    if (activeSessions.has(key)) {
+      continue
+    }
+    if (now - entry.lastAccess > ttlMs) {
+      evictions.add(key)
+    }
+  }
+
+  const remainingCount = entries.filter(([key]) => !evictions.has(key)).length
+  const overflow = remainingCount - maxSessions
+
+  if (overflow > 0) {
+    let remainingOverflow = overflow
+    for (const [key] of entries) {
+      if (remainingOverflow <= 0) {
+        break
+      }
+      if (activeSessions.has(key) || evictions.has(key)) {
+        continue
+      }
+      evictions.add(key)
+      remainingOverflow -= 1
+    }
+  }
+
+  const ordered: string[] = []
+  for (const [key] of entries) {
+    if (evictions.has(key)) {
+      ordered.push(key)
+    }
+  }
+
+  return ordered
+}
+
 export interface SyncContextValue {
   /**
    * The observable state. Use with Legend State's use$ for fine-grained subscriptions.
@@ -185,6 +245,9 @@ export interface SyncContextValue {
   /** Sync a session's diffs from the server */
   syncSessionDiffs: (sessionKey: string, options?: SyncSessionDiffOptions) => Promise<void>
 
+  /** Pin/unpin a session as active (skips eviction) */
+  setSessionActive: (sessionKey: string, isActive: boolean) => void
+
   /** Get a session without subscribing (peek) */
   getSession: (sessionKey: string) => Session | undefined
 
@@ -202,6 +265,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const { currentProject, projects, selectedProjectIds } = useProject()
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const sessionCacheRef = useRef<Map<string, SessionCacheEntry>>(new Map())
+  const activeSessionKeysRef = useRef<Set<string>>(new Set())
 
   const selectedDirectories = useMemo(() => {
     if (selectedProjectIds.length === 0) {
@@ -252,7 +317,72 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // biome-ignore lint/suspicious/noExplicitAny: Legend State proxy returns observable for any key
   const key$ = <T,>(obs: any, k: string): Observable<T> => obs[k]
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key$ is a pure utility function
+  const clearSessionData = useCallback(
+    (sessionKey: string) => {
+      const messages = key$<Message[]>(state$.data.messages, sessionKey).peek() ?? []
+
+      batch(() => {
+        key$<Message[]>(state$.data.messages, sessionKey).delete()
+        key$<FileDiff[]>(state$.data.sessionDiffs, sessionKey).delete()
+        for (const message of messages) {
+          key$<Part[]>(state$.data.parts, message.id).delete()
+        }
+        key$<boolean>(state$.data.needsHydration, sessionKey).set(true)
+      })
+    },
+    [state$],
+  )
+
+  const evictSessions = useCallback(
+    (now: number) => {
+      const entries = Array.from(sessionCacheRef.current.entries())
+      const evictedKeys = selectSessionEvictions({
+        entries,
+        activeSessions: activeSessionKeysRef.current,
+        maxSessions: SESSION_CACHE_MAX_SESSIONS,
+        ttlMs: SESSION_CACHE_TTL_MS,
+        now,
+      })
+
+      if (evictedKeys.length === 0) {
+        return
+      }
+
+      for (const sessionKey of evictedKeys) {
+        sessionCacheRef.current.delete(sessionKey)
+        clearSessionData(sessionKey)
+      }
+    },
+    [clearSessionData],
+  )
+
+  const touchSessionCache = useCallback(
+    (sessionKey: string, now = Date.now()) => {
+      const cache = sessionCacheRef.current
+      if (cache.has(sessionKey)) {
+        cache.delete(sessionKey)
+      }
+      cache.set(sessionKey, { lastAccess: now })
+      evictSessions(now)
+    },
+    [evictSessions],
+  )
+
+  const setSessionActive = useCallback((sessionKey: string, isActive: boolean) => {
+    if (!sessionKey) {
+      return
+    }
+    if (isActive) {
+      activeSessionKeysRef.current.add(sessionKey)
+      return
+    }
+    activeSessionKeysRef.current.delete(sessionKey)
+  }, [])
+
   const resetData = useCallback(() => {
+    sessionCacheRef.current.clear()
+    activeSessionKeysRef.current.clear()
     batch(() => {
       state$.data.sessions.set({})
       state$.data.messages.set({})
@@ -327,6 +457,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
             ).delete()
             key$<boolean>(state$.data.needsHydration, sessionKey).delete()
           })
+
+          activeSessionKeysRef.current.delete(sessionKey)
+          sessionCacheRef.current.delete(sessionKey)
           return
         }
         case 'session.status': {
@@ -350,8 +483,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }
         case 'session.diff': {
           const { sessionID, diff } = event.properties
+          const sessionKey = sessionKeyFor(sessionID)
           // O(1) key-based update
-          key$<FileDiff[]>(state$.data.sessionDiffs, sessionKeyFor(sessionID)).set(diff)
+          key$<FileDiff[]>(state$.data.sessionDiffs, sessionKey).set(diff)
+          touchSessionCache(sessionKey)
           return
         }
         case 'message.updated': {
@@ -366,6 +501,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
           // O(1) key-based update
           key$<Message[]>(state$.data.messages, sessionKey).set(nextMessages)
+          touchSessionCache(sessionKey)
           return
         }
         case 'message.removed': {
@@ -379,6 +515,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
             key$<Message[]>(state$.data.messages, sessionKey).set(nextMessages)
             key$<Part[]>(state$.data.parts, messageID).delete()
           })
+
+          touchSessionCache(sessionKey)
           return
         }
         case 'message.part.updated': {
@@ -437,7 +575,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           return
       }
     },
-    [isForegroundDirectory, markNeedsHydration, state$],
+    [isForegroundDirectory, markNeedsHydration, state$, touchSessionCache],
   )
 
   const handleGlobalEvent = useCallback(
@@ -566,6 +704,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [client, handleGlobalEvent, hydrateSessions, state$])
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      evictSessions(Date.now())
+    }, SESSION_CACHE_SWEEP_INTERVAL_MS)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [evictSessions])
+
   // Stable method - syncs a session's messages from server
   // biome-ignore lint/correctness/useExhaustiveDependencies: key$ is a pure utility function
   const syncSession = useCallback(
@@ -584,10 +732,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const normalizedKey = parsed ? sessionKey : buildSessionKey(directory, sessionId)
       const existingMessages = key$<Message[]>(state$.data.messages, normalizedKey).peek()
       const needsHydration = key$<boolean>(state$.data.needsHydration, normalizedKey).peek()
+      const hasCachedMessages = Boolean(existingMessages && existingMessages.length > 0)
 
       if (
         !shouldFetchSessionMessages({ existingMessages, needsHydration, force: options?.force })
       ) {
+        if (hasCachedMessages) {
+          touchSessionCache(normalizedKey)
+        }
         return
       }
 
@@ -616,8 +768,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           key$<boolean>(state$.data.needsHydration, normalizedKey).delete()
         }
       })
+
+      touchSessionCache(normalizedKey)
     },
-    [client, currentProject, state$],
+    [client, currentProject, state$, touchSessionCache],
   )
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: key$ is a pure utility function
@@ -645,6 +799,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (!shouldFetchSessionDiffs({ existingDiffs, summary, force: options?.force })) {
         if (existingDiffs === undefined && summary && !summaryHasDiffs) {
           key$<FileDiff[]>(state$.data.sessionDiffs, normalizedKey).set([])
+          touchSessionCache(normalizedKey)
+        } else if (existingDiffs !== undefined) {
+          touchSessionCache(normalizedKey)
         }
         return
       }
@@ -656,8 +813,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       })
       const diffs = diffResult.data ?? []
       key$<FileDiff[]>(state$.data.sessionDiffs, normalizedKey).set(diffs)
+      touchSessionCache(normalizedKey)
     },
-    [client, currentProject, state$],
+    [client, currentProject, state$, touchSessionCache],
   )
 
   // Stable method - get a session without subscribing
@@ -686,11 +844,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       state$,
       syncSession,
       syncSessionDiffs,
+      setSessionActive,
       getSession,
       listSessions,
     }),
     // These are stable refs - state$ from useObservable, callbacks from useCallback
-    [state$, syncSession, syncSessionDiffs, getSession, listSessions],
+    [state$, syncSession, syncSessionDiffs, setSessionActive, getSession, listSessions],
   )
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>

@@ -1,35 +1,44 @@
 'use client'
 
 import { use$ } from '@legendapp/state/react'
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useSync } from '@/context/SyncProvider'
 import type { Part } from '@/lib/opencode'
 
+type PartsByMessage = Record<string, Part[]>
+
+export type PartsForMessagesResult = {
+  getParts: (messageId: string) => Part[]
+  partsByMessage: PartsByMessage
+}
+
 /**
- * Subscribe to ALL parts and derive parts for specific message IDs.
+ * Subscribe to parts for specific message IDs.
  *
- * This creates a reactive subscription to the parts store.
- * When any part updates, this hook will re-evaluate.
- *
- * For large applications with many messages, consider using
- * useMessageParts for individual messages instead.
+ * This creates reactive subscriptions scoped to the provided message IDs,
+ * avoiding re-renders from unrelated parts.
  *
  * @param messageIds - Array of message IDs to get parts for
- * @returns Function to get parts by message ID (getParts)
+ * @returns Object with getParts and partsByMessage snapshot
  */
-export function usePartsForMessages(_messageIds: string[]): (messageId: string) => Part[] {
+export function usePartsForMessages(messageIds: string[]): PartsForMessagesResult {
   const { state$ } = useSync()
 
-  // Subscribe to the entire parts store
-  // This will re-render when ANY part changes
-  const allParts = use$(state$.data.parts) as Record<string, Part[]> | undefined
-
-  // Return a stable getter function
-  return useMemo(() => {
-    return (messageId: string): Part[] => {
-      return allParts?.[messageId] ?? []
+  const partsByMessage = use$((): PartsByMessage => {
+    const next: PartsByMessage = {}
+    for (const messageId of messageIds) {
+      const parts = state$.data.parts[messageId]?.get() as Part[] | undefined
+      next[messageId] = parts ?? []
     }
-  }, [allParts])
+    return next
+  })
+
+  const getParts = useCallback(
+    (messageId: string): Part[] => partsByMessage[messageId] ?? [],
+    [partsByMessage],
+  )
+
+  return useMemo(() => ({ getParts, partsByMessage }), [getParts, partsByMessage])
 }
 
 /**
@@ -53,9 +62,9 @@ export function useMessageParts(messageId: string | undefined): Part[] {
  * with parts subscription.
  *
  * @param messages - Array of messages to get parts for
- * @returns Function to get parts by message ID
+ * @returns Object with getParts and partsByMessage snapshot
  */
-export function useSessionParts(messages: { id: string }[]): (messageId: string) => Part[] {
+export function useSessionParts(messages: { id: string }[]): PartsForMessagesResult {
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
   return usePartsForMessages(messageIds)
 }

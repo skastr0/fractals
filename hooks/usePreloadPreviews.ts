@@ -72,9 +72,13 @@ export function usePreloadPreviews({ sessionKeys, enabled = true }: UsePreloadPr
 
     // Find sessions that don't have messages loaded yet
     const messagesSnapshot = state$.data.messages.peek() ?? {}
+    const hydrationSnapshot = state$.data.needsHydration.peek() ?? {}
     const needsPreload = sessionKeys.filter((key) => {
-      // Skip if already loading or already has messages
+      // Skip if already loading, needs hydration, or already has messages
       if (loadingRef.current.has(key)) {
+        return false
+      }
+      if (hydrationSnapshot[key]) {
         return false
       }
       const messages = messagesSnapshot[key]

@@ -7,7 +7,7 @@ import { useSync } from '@/context/SyncProvider'
 import { usePartsForMessages } from '@/hooks/useParts'
 import { useSession } from '@/hooks/useSession'
 import { useSessions } from '@/hooks/useSessions'
-import { type FlatItem, flattenMessages } from '@/lib/session/flat-items'
+import { type FlatItem, type FlatItemsCache, flattenMessages } from '@/lib/session/flat-items'
 
 import { FlatItemRenderer } from './flat-item-renderer'
 import { ScrollToBottom } from './scroll-to-bottom'
@@ -23,10 +23,11 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
 
   // Extract all message IDs for reactive parts subscription
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
-  // Subscribe to parts reactively - this will trigger re-renders when parts update (streaming!)
-  const getParts = usePartsForMessages(messageIds)
+  // Subscribe only to parts for current message IDs
+  const { getParts } = usePartsForMessages(messageIds)
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const flatItemCache = useRef<FlatItemsCache>(new Map())
 
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isPinned, setIsPinned] = useState(true)
@@ -35,20 +36,16 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
   // If not in map, use default behavior
   const [userOverrides, setUserOverrides] = useState<Map<string, boolean>>(new Map())
 
+  useEffect(() => {
+    void sessionKey
+    flatItemCache.current.clear()
+  }, [sessionKey])
+
   // Helper to check if a part should be expanded by default
   const shouldExpandByDefault = useCallback((item: FlatItem): boolean => {
     if (item.type !== 'part') return false
 
-    // TEXT PARTS (messages) - expanded by default
-    if (item.part.type === 'text' && !item.isSynthetic) return true
-
-    // EDIT/WRITE tools - expanded by default (user wants to see diffs)
-    if (item.part.type === 'tool') {
-      const tool = (item.part as { tool?: string }).tool
-      if (tool === 'edit' || tool === 'write') return true
-    }
-
-    // Everything else COLLAPSED by default
+    // Non-streaming parts default to collapsed (streaming handled elsewhere)
     return false
   }, [])
 
@@ -88,10 +85,9 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
   )
 
   // Flatten messages to individual items for per-item virtualization
-  const flatItems = useMemo(
-    () => flattenMessages({ messages: sortedMessages, getParts }),
-    [sortedMessages, getParts],
-  )
+  const flatItems = useMemo(() => {
+    return flattenMessages({ messages: sortedMessages, getParts, cache: flatItemCache.current })
+  }, [sortedMessages, getParts])
 
   // Compute fork counts - count child sessions that reference each message
   const forkCounts = useMemo(() => {
