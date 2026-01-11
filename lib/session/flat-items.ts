@@ -32,9 +32,17 @@ export interface PartItem extends FlatItemBase {
 
 export type FlatItem = UserMessageItem | AssistantHeaderItem | PartItem
 
+export interface FlatItemsCacheEntry {
+  signature: string
+  items: FlatItem[]
+}
+
+export type FlatItemsCache = Map<string, FlatItemsCacheEntry>
+
 export interface FlattenOptions {
   messages: Message[]
   getParts: (messageId: string) => Part[]
+  cache?: FlatItemsCache
 }
 
 type TurnItem =
@@ -99,10 +107,52 @@ const isPartVisible = (part: Part): boolean => {
   return true
 }
 
+const buildPartSignature = (part: Part): string => {
+  const base = `${part.id}:${part.type}`
+  const endTime = getPartEndTime(part)
+  const endToken = endTime === undefined ? '' : `:${endTime}`
+
+  if (part.type === 'tool') {
+    const toolPart = part as ToolPartExtended
+    const status = toolPart.state?.status ?? ''
+    const stateSignature = toolPart.state ? JSON.stringify(toolPart.state) : ''
+    return `${base}:${status}:${stateSignature}${endToken}`
+  }
+
+  const textValue = (part as { text?: string }).text
+  if (typeof textValue === 'string') {
+    const textPart = part as TextPartExtended & { text: string }
+    return `${base}:${textValue}:${textPart.ignored ? '1' : '0'}:${textPart.synthetic ? '1' : '0'}${endToken}`
+  }
+
+  if (part.type === 'file') {
+    const filePart = part as { url?: string; filename?: string; mime?: string }
+    return `${base}:${filePart.url ?? ''}:${filePart.filename ?? ''}:${filePart.mime ?? ''}${endToken}`
+  }
+
+  if (part.type === 'patch') {
+    const patchPart = part as { files?: Array<{ path?: string }> }
+    const fileCount = patchPart.files?.length ?? 0
+    return `${base}:${fileCount}${endToken}`
+  }
+
+  return `${base}${endToken}`
+}
+
+const buildMessageSignature = (message: Message, parts: Part[]): string => {
+  if (parts.length === 0) {
+    return `${message.id}:${message.role}`
+  }
+
+  const partSignature = parts.map(buildPartSignature).join('|')
+  return `${message.id}:${message.role}:${partSignature}`
+}
+
 export function flattenMessages(options: FlattenOptions): FlatItem[] {
-  const { messages, getParts } = options
+  const { messages, getParts, cache } = options
 
   if (messages.length === 0) {
+    cache?.clear()
     return []
   }
 
@@ -127,16 +177,54 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
   }
 
   const flatItems: FlatItem[] = []
+  const seenTurnIds = cache ? new Set<string>() : undefined
 
   for (const userMessage of userMessages) {
     const turnId = userMessage.id
-    const turnItems: TurnItem[] = []
+    if (seenTurnIds) {
+      seenTurnIds.add(turnId)
+    }
 
-    // Collect user parts first
     const userParts = getParts(userMessage.id)
     const visibleUserParts = userParts.filter(isPartVisible)
 
-    // Only add UserMessageItem if there are visible parts
+    const assistantMessages = assistantByParent.get(userMessage.id) ?? []
+    const assistantPartsByMessage = new Map<string, Part[]>()
+    const assistantSignatures: string[] = []
+
+    for (const assistantMessage of assistantMessages) {
+      const assistantParts = getParts(assistantMessage.id)
+      const visibleAssistantParts = assistantParts.filter(isPartVisible)
+      assistantPartsByMessage.set(assistantMessage.id, visibleAssistantParts)
+
+      if (cache) {
+        assistantSignatures.push(buildMessageSignature(assistantMessage, visibleAssistantParts))
+      }
+    }
+
+    const turnSignature = cache
+      ? [buildMessageSignature(userMessage, visibleUserParts), ...assistantSignatures].join('|')
+      : ''
+
+    if (cache) {
+      const cachedTurn = cache.get(turnId)
+      if (cachedTurn && cachedTurn.signature === turnSignature) {
+        for (let i = 0; i < cachedTurn.items.length; i += 1) {
+          const cachedItem = cachedTurn.items[i]
+          if (!cachedItem) {
+            continue
+          }
+          cachedItem.index = flatItems.length
+          cachedItem.isFirstInTurn = i === 0
+          cachedItem.isLastInTurn = i === cachedTurn.items.length - 1
+          flatItems.push(cachedItem)
+        }
+        continue
+      }
+    }
+
+    const turnItems: TurnItem[] = []
+
     if (visibleUserParts.length > 0) {
       turnItems.push({
         id: `user-message-${userMessage.id}`,
@@ -145,7 +233,6 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
         message: userMessage,
       })
 
-      // Add user parts
       for (const part of visibleUserParts) {
         turnItems.push({
           id: `part-${userMessage.id}-${part.id}`,
@@ -159,13 +246,9 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
       }
     }
 
-    // Collect and add assistant parts
-    const assistantMessages = assistantByParent.get(userMessage.id) ?? []
     for (const assistantMessage of assistantMessages) {
-      const assistantParts = getParts(assistantMessage.id)
-      const visibleAssistantParts = assistantParts.filter(isPartVisible)
+      const visibleAssistantParts = assistantPartsByMessage.get(assistantMessage.id) ?? []
 
-      // Only add AssistantHeaderItem if there are visible parts
       if (visibleAssistantParts.length > 0) {
         turnItems.push({
           id: `assistant-header-${assistantMessage.id}`,
@@ -174,7 +257,6 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
           message: assistantMessage,
         })
 
-        // Add assistant parts
         for (const part of visibleAssistantParts) {
           turnItems.push({
             id: `part-${assistantMessage.id}-${part.id}`,
@@ -189,22 +271,39 @@ export function flattenMessages(options: FlattenOptions): FlatItem[] {
       }
     }
 
-    // Skip turns with no visible items
     if (turnItems.length === 0) {
+      if (cache) {
+        cache.delete(turnId)
+      }
       continue
     }
 
+    const nextItems: FlatItem[] = []
     for (let i = 0; i < turnItems.length; i += 1) {
       const item = turnItems[i]
       if (!item) {
         continue
       }
-      flatItems.push({
+      const nextItem: FlatItem = {
         ...item,
         index: flatItems.length,
         isFirstInTurn: i === 0,
         isLastInTurn: i === turnItems.length - 1,
-      })
+      }
+      flatItems.push(nextItem)
+      nextItems.push(nextItem)
+    }
+
+    if (cache) {
+      cache.set(turnId, { signature: turnSignature, items: nextItems })
+    }
+  }
+
+  if (cache && seenTurnIds) {
+    for (const cachedTurnId of Array.from(cache.keys())) {
+      if (!seenTurnIds.has(cachedTurnId)) {
+        cache.delete(cachedTurnId)
+      }
     }
   }
 

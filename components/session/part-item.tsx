@@ -52,6 +52,13 @@ export const PartItem = memo(function PartItem({ item, isExpanded, onToggle }: P
 
   // For tool parts - use streamlined rendering
   if (isToolPart) {
+    const toolPart = item.part as ToolPart
+    const editDiff =
+      toolPart.tool === 'edit' && toolPart.state.status === 'completed'
+        ? (toolPart.state as { metadata?: { diff?: string } }).metadata?.diff
+        : undefined
+    const shouldRenderOutput = isExpanded || Boolean(editDiff)
+
     return (
       <div className={cn(item.isLastInTurn && 'mb-1')}>
         <button
@@ -63,9 +70,9 @@ export const PartItem = memo(function PartItem({ item, isExpanded, onToggle }: P
           <PartPreview part={item.part} isExpanded={isExpanded} />
         </button>
 
-        {isExpanded && (
+        {shouldRenderOutput && (
           <div className="py-1 pl-6 pr-2">
-            <ToolOutputRenderer part={item.part as ToolPart} />
+            <ToolOutputRenderer part={toolPart} isExpanded={isExpanded} />
           </div>
         )}
       </div>

@@ -1,8 +1,16 @@
 import { expect, test } from 'bun:test'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
-import { shouldFetchSessionDiffs, shouldFetchSessionMessages } from '../context/SyncProvider'
-import type { Message } from '../lib/opencode'
+import { ToolOutputRenderer } from '../components/session/parts/tool-output'
+import {
+  selectSessionEvictions,
+  shouldFetchSessionDiffs,
+  shouldFetchSessionMessages,
+} from '../context/SyncProvider'
+import type { AssistantMessage, Message, Part, ToolPart, UserMessage } from '../lib/opencode'
 import { checkServerHealth } from '../lib/opencode/health'
+import { flattenMessages } from '../lib/session/flat-items'
 import type { FileDiff } from '../types'
 
 test('checkServerHealth returns connected details', async () => {
@@ -125,4 +133,158 @@ test('shouldFetchSessionDiffs fetches when forced', () => {
       force: true,
     }),
   ).toEqual(true)
+})
+
+test('selectSessionEvictions evicts expired sessions', () => {
+  const entries: Array<[string, { lastAccess: number }]> = [
+    ['session-a', { lastAccess: 0 }],
+    ['session-b', { lastAccess: 1000 }],
+    ['session-c', { lastAccess: 2000 }],
+  ]
+
+  expect(
+    selectSessionEvictions({
+      entries,
+      activeSessions: new Set(['session-b']),
+      maxSessions: 10,
+      ttlMs: 3000,
+      now: 10000,
+    }),
+  ).toEqual(['session-a', 'session-c'])
+})
+
+test('selectSessionEvictions evicts LRU when cache exceeds max', () => {
+  const entries: Array<[string, { lastAccess: number }]> = [
+    ['session-a', { lastAccess: 1000 }],
+    ['session-b', { lastAccess: 2000 }],
+    ['session-c', { lastAccess: 3000 }],
+    ['session-d', { lastAccess: 4000 }],
+  ]
+
+  expect(
+    selectSessionEvictions({
+      entries,
+      activeSessions: new Set(['session-b']),
+      maxSessions: 2,
+      ttlMs: 100000,
+      now: 5000,
+    }),
+  ).toEqual(['session-a', 'session-c'])
+})
+
+test('collapsed edit tool output renders diff summary', () => {
+  const part = {
+    type: 'tool',
+    tool: 'edit',
+    state: {
+      status: 'completed',
+      input: { filePath: './src/index.ts' },
+      metadata: { diff: '--- a/src/index.ts\n+++ b/src/index.ts\n@@\n-foo\n+bar\n' },
+    },
+  } as unknown as ToolPart
+
+  const html = renderToStaticMarkup(createElement(ToolOutputRenderer, { part, isExpanded: false }))
+
+  expect(html.includes('Diff ready')).toEqual(true)
+  expect(html.includes('Expand to view diff')).toEqual(true)
+})
+
+const createUserMessage = (id: string, created: number): UserMessage =>
+  ({
+    id,
+    role: 'user',
+    time: { created },
+    agent: 'test',
+    model: { providerID: 'test', modelID: 'test' },
+  }) as unknown as UserMessage
+
+const createAssistantMessage = (id: string, parentID: string, created: number): AssistantMessage =>
+  ({
+    id,
+    role: 'assistant',
+    parentID,
+    time: { created },
+    agent: 'test',
+    model: { providerID: 'test', modelID: 'test' },
+  }) as unknown as AssistantMessage
+
+const createTextPart = (id: string, text: string): Part =>
+  ({
+    id,
+    type: 'text',
+    text,
+  }) as unknown as Part
+
+test('flattenMessages reuses cached items for unchanged turns', () => {
+  const cache = new Map()
+  const user = createUserMessage('user-1', 1)
+  const assistant = createAssistantMessage('assistant-1', user.id, 2)
+  const partsByMessage = new Map<string, Part[]>([
+    [user.id, [createTextPart('user-part-1', 'Hello')]],
+    [assistant.id, [createTextPart('assistant-part-1', 'Hi there')]],
+  ])
+
+  const getParts = (messageId: string) => partsByMessage.get(messageId) ?? []
+  const messages = [user, assistant]
+
+  const first = flattenMessages({ messages, getParts, cache })
+  const second = flattenMessages({ messages, getParts, cache })
+
+  expect(second.length).toEqual(first.length)
+  expect(second.every((item, index) => item === first[index])).toEqual(true)
+})
+
+test('flattenMessages rebuilds cached turns when parts change', () => {
+  const cache = new Map()
+  const user = createUserMessage('user-1', 1)
+  const assistant = createAssistantMessage('assistant-1', user.id, 2)
+  const partsByMessage = new Map<string, Part[]>([
+    [user.id, [createTextPart('user-part-1', 'Hello')]],
+    [assistant.id, [createTextPart('assistant-part-1', 'Hi there')]],
+  ])
+
+  const getParts = (messageId: string) => partsByMessage.get(messageId) ?? []
+  const messages = [user, assistant]
+
+  const first = flattenMessages({ messages, getParts, cache })
+
+  partsByMessage.set(assistant.id, [createTextPart('assistant-part-1', 'Updated')])
+
+  const second = flattenMessages({ messages, getParts, cache })
+
+  expect(second[0] === first[0]).toEqual(false)
+})
+
+test('flattenMessages keeps cached item indexes accurate', () => {
+  const cache = new Map()
+  const userA = createUserMessage('user-a', 1)
+  const assistantA = createAssistantMessage('assistant-a', userA.id, 2)
+  const userB = createUserMessage('user-b', 3)
+  const assistantB = createAssistantMessage('assistant-b', userB.id, 4)
+  const partsByMessage = new Map<string, Part[]>([
+    [userA.id, [createTextPart('user-part-a', 'Hello')]],
+    [assistantA.id, [createTextPart('assistant-part-a', 'Hi')]],
+    [userB.id, [createTextPart('user-part-b', 'Second')]],
+    [assistantB.id, [createTextPart('assistant-part-b', 'Reply')]],
+  ])
+
+  const getParts = (messageId: string) => partsByMessage.get(messageId) ?? []
+  const messages = [userA, assistantA, userB, assistantB]
+
+  const first = flattenMessages({ messages, getParts, cache })
+  const cachedItem = first.find((item) => item.id === `user-message-${userB.id}`)
+
+  expect(Boolean(cachedItem)).toEqual(true)
+
+  const userC = createUserMessage('user-c', 0)
+  const assistantC = createAssistantMessage('assistant-c', userC.id, 0.5)
+  partsByMessage.set(userC.id, [createTextPart('user-part-c', 'First')])
+  partsByMessage.set(assistantC.id, [createTextPart('assistant-part-c', 'Ack')])
+
+  const nextMessages = [userC, assistantC, ...messages]
+  const second = flattenMessages({ messages: nextMessages, getParts, cache })
+  const updatedItem = second.find((item) => item.id === `user-message-${userB.id}`)
+
+  expect(updatedItem === cachedItem).toEqual(true)
+  expect(updatedItem?.index).toEqual(second.indexOf(updatedItem as NonNullable<typeof updatedItem>))
 })
