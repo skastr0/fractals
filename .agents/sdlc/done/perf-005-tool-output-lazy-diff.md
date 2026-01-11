@@ -10,9 +10,9 @@ PERF-005
 1.5 hours
 
 ## Acceptance Criteria
-- [ ] `PierreDiffView` does not mount until the part is expanded.
-- [ ] Collapsed diff parts show a lightweight summary or “expand to view diff”.
-- [ ] Non-diff tool outputs remain unchanged.
+- [x] `PierreDiffView` does not mount until the part is expanded.
+- [x] Collapsed diff parts show a lightweight summary or “expand to view diff”.
+- [x] Non-diff tool outputs remain unchanged.
 
 ## Technical Notes
 - Gate the diff render on `isExpanded` in the part renderer.
@@ -21,3 +21,4 @@ PERF-005
 
 ## Notes
 2026-01-10: Created from commit plan.
+2026-01-10: Added collapsed diff summary gating and deferred diff rendering. Files: components/session/part-item.tsx, components/session/parts/tool-output.tsx.

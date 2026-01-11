@@ -10,9 +10,9 @@ PERF-004
 2 hours
 
 ## Acceptance Criteria
-- [ ] Streaming markdown reparses at most once per configured throttle window (or on block boundaries).
-- [ ] Final rendered markdown matches the non-streaming output after completion.
-- [ ] No visible flashing or broken fences during streaming updates.
+- [x] Streaming markdown reparses at most once per configured throttle window (or on block boundaries).
+- [x] Final rendered markdown matches the non-streaming output after completion.
+- [x] No visible flashing or broken fences during streaming updates.
 
 ## Technical Notes
 - Introduce throttled content state (e.g., `useDeferredValue`, timer-based batching, or a custom hook).
@@ -21,3 +21,4 @@ PERF-004
 
 ## Notes
 2026-01-10: Created from commit plan.
+2026-01-10: Added throttled streaming markdown updates with final flush. Files changed: components/ui/streaming-markdown.tsx.

@@ -10,9 +10,9 @@ PERF-006
 3 hours
 
 ## Acceptance Criteria
-- [ ] Session data for inactive sessions is evicted once cache limits are exceeded.
-- [ ] The active session is never evicted, and evicted sessions rehydrate on access.
-- [ ] Cache size or TTL is configurable and documented in code.
+- [x] Session data for inactive sessions is evicted once cache limits are exceeded.
+- [x] The active session is never evicted, and evicted sessions rehydrate on access.
+- [x] Cache size or TTL is configurable and documented in code.
 
 ## Technical Notes
 - Track an LRU list keyed by `sessionKey` and evict from `state$.data.messages`, `parts`, and `sessionDiffs` together.
@@ -21,3 +21,4 @@ PERF-006
 
 ## Notes
 2026-01-10: Created from commit plan.
+2026-01-10: Implemented session eviction, active pinning, and preload skip; updated tests. Files changed: context/SyncProvider.tsx, hooks/usePreloadPreviews.ts, components/panes/session-pane.tsx, tests/opencode-health.test.ts.

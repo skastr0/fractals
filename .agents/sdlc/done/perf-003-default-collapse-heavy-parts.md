@@ -10,9 +10,9 @@ Default expansion currently expands text/tool parts, triggering heavy markdown a
 2 hours
 
 ## Acceptance Criteria
-- [ ] Non-streaming text and tool parts are collapsed by default.
-- [ ] Collapsed parts render a lightweight preview (no markdown/diff render until expanded).
-- [ ] User overrides still expand/collapse per item, and streaming parts remain expanded.
+- [x] Non-streaming text and tool parts are collapsed by default.
+- [x] Collapsed parts render a lightweight preview (no markdown/diff render until expanded).
+- [x] User overrides still expand/collapse per item, and streaming parts remain expanded.
 
 ## Technical Notes
 - Adjust `shouldExpandByDefault` in `components/session/message-list.tsx`.
@@ -21,3 +21,4 @@ Default expansion currently expands text/tool parts, triggering heavy markdown a
 
 ## Notes
 2026-01-10: Created from commit plan.
+2026-01-10: Default-collapsed non-streaming parts; kept preview-only rendering until expansion. Files changed: components/session/message-list.tsx.

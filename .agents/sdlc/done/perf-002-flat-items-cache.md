@@ -10,9 +10,9 @@ PERF-002
 2.5 hours
 
 ## Acceptance Criteria
-- [ ] `flattenMessages` reuses `FlatItem` objects for unchanged turns across renders.
-- [ ] The flat-item list only rebuilds for turns with changed messages or parts.
-- [ ] `index`, `isFirstInTurn`, and `isLastInTurn` values remain correct after caching.
+- [x] `flattenMessages` reuses `FlatItem` objects for unchanged turns across renders.
+- [x] The flat-item list only rebuilds for turns with changed messages or parts.
+- [x] `index`, `isFirstInTurn`, and `isLastInTurn` values remain correct after caching.
 
 ## Technical Notes
 - Add a cache keyed by `turnId` plus a signature of part IDs/state to know when to invalidate.
@@ -21,3 +21,4 @@ PERF-002
 
 ## Notes
 2026-01-10: Created from commit plan.
+2026-01-10: Added turn signature cache for flat items, updated MessageList usage, and added cache tests. Files changed: lib/session/flat-items.ts, components/session/message-list.tsx, tests/opencode-health.test.ts.
