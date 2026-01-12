@@ -262,25 +262,12 @@ const SyncContext = createContext<SyncContextValue | null>(null)
 // =============================================================================
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { client } = useOpenCode()
-  const { currentProject, projects, selectedProjectIds } = useProject()
+  // Use selectedDirectories from context - it now includes sandboxes/worktrees
+  const { currentProject, selectedDirectories } = useProject()
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const sessionCacheRef = useRef<Map<string, SessionCacheEntry>>(new Map())
   const activeSessionKeysRef = useRef<Set<string>>(new Set())
-
-  const selectedDirectories = useMemo(() => {
-    if (selectedProjectIds.length === 0) {
-      return null
-    }
-    const directories = new Set<string>()
-    for (const projectId of selectedProjectIds) {
-      const project = projects.find((item) => item.id === projectId)
-      if (project?.worktree) {
-        directories.add(project.worktree)
-      }
-    }
-    return directories
-  }, [projects, selectedProjectIds])
 
   const isForegroundDirectory = useCallback(
     (directory: string | undefined) => {
@@ -288,7 +275,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         return true
       }
       if (!selectedDirectories) {
-        return true
+        return true // null means show all
       }
       return selectedDirectories.has(directory)
     },

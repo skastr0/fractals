@@ -1,23 +1,21 @@
 'use client'
 
 import { use$, useObservable } from '@legendapp/state/react'
-import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo } from 'react'
 import type { Project } from '@/lib/opencode'
+import {
+  filterJunkWorktrees,
+  getAllWorktrees,
+  getSelectedDirectories,
+  isJunkWorktree,
+  type WorktreeItem,
+} from '@/lib/utils/worktree'
 import { useOpenCode } from './OpenCodeProvider'
 
 const LAST_PROJECT_KEY = 'opencode-last-project'
 
-const EXCLUDE_PATTERNS = [
-  /^\/private\/var/i,
-  /^\/var\/folders/i,
-  /^\/tmp\//i,
-  /\/node_modules\//i,
-  /^C:\\Windows/i,
-  /^C:\\Users\\[^\\]+\\AppData\\Local\\Temp/i,
-]
-
 const isJunkProject = (worktree: string): boolean => {
-  return EXCLUDE_PATTERNS.some((pattern) => pattern.test(worktree))
+  return isJunkWorktree(worktree)
 }
 
 const readStoredProjectId = (): string | null => {
@@ -73,6 +71,10 @@ export interface ProjectContextValue {
   projects: Project[]
   currentProject: Project | null
   selectedProjectIds: string[]
+  /** All worktrees (main + sandboxes) from all projects */
+  worktrees: WorktreeItem[]
+  /** Directories included in the current selection (includes sandboxes) */
+  selectedDirectories: Set<string> | null
   isLoading: boolean
   selectProject: (projectId: string) => Promise<void>
   toggleSelectedProject: (projectId: string) => void
@@ -161,6 +163,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const selectedProjectIds = use$(() => state$.selectedProjectIds.get())
   const isLoading = use$(() => state$.isLoading.get())
 
+  // Derive all worktrees (main + sandboxes) from projects, filtered to remove junk
+  const worktrees = useMemo(() => filterJunkWorktrees(getAllWorktrees(projects)), [projects])
+
+  // Derive the set of directories for the current selection (includes sandboxes)
+  const selectedDirectories = useMemo(() => {
+    if (selectedProjectIds.length === 0) {
+      return null // null means "all projects" - no filtering
+    }
+    return getSelectedDirectories(projects, selectedProjectIds)
+  }, [projects, selectedProjectIds])
+
   useEffect(() => {
     if (projects.length === 0) {
       if (currentProject) {
@@ -192,6 +205,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     projects,
     currentProject,
     selectedProjectIds,
+    worktrees,
+    selectedDirectories,
     isLoading,
     selectProject,
     toggleSelectedProject,

@@ -32,26 +32,13 @@ const sortByUpdatedDesc = (a: SessionWithDepth, b: SessionWithDepth) =>
 
 export function useSessions(options?: UseSessionsOptions) {
   const { state$ } = useSync()
-  const { projects, selectedProjectIds } = useProject()
-
-  const selectedDirectories = useMemo(() => {
-    if (selectedProjectIds.length === 0) {
-      return null
-    }
-    const directories = new Set<string>()
-    for (const projectId of selectedProjectIds) {
-      const project = projects.find((item) => item.id === projectId)
-      if (project?.worktree) {
-        directories.add(project.worktree)
-      }
-    }
-    return directories
-  }, [projects, selectedProjectIds])
+  // Use selectedDirectories from context - it now includes sandboxes/worktrees
+  const { selectedDirectories } = useProject()
 
   const matchesSelectedProjects = useCallback(
     (session: SessionWithDepth) => {
       if (!selectedDirectories) {
-        return true
+        return true // null means show all
       }
       const directory = parseSessionKey(session.sessionKey)?.directory ?? session.directory
       return Boolean(directory && selectedDirectories.has(directory))

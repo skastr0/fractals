@@ -38,6 +38,10 @@ export interface SessionNodeData extends Record<string, unknown> {
   sessionKey: string
   title: string
   projectLabel: string
+  /** True if this session is in a git worktree (sandbox) */
+  isWorktree?: boolean
+  /** The worktree name if in a sandbox */
+  worktreeName?: string | null
   status: SessionStatus
   depth: number
   isSubagent: boolean

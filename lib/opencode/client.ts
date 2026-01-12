@@ -2,6 +2,7 @@ import {
   createOpencodeClient,
   type OpencodeClient,
   type OpencodeClientConfig,
+  type Project as SDKProject,
 } from '@opencode-ai/sdk/v2/client'
 
 export type {
@@ -16,7 +17,6 @@ export type {
   OpencodeClient,
   Part,
   PatchPart,
-  Project,
   ReasoningPart,
   Session,
   SessionStatus,
@@ -24,6 +24,17 @@ export type {
   ToolPart,
   UserMessage,
 } from '@opencode-ai/sdk/v2/client'
+
+/**
+ * Extended Project type that includes sandboxes (worktrees) returned by OpenCode server.
+ * The SDK type doesn't include this field, but the server returns it.
+ */
+export type Project = SDKProject & {
+  /** Array of worktree/sandbox directory paths associated with this project */
+  sandboxes?: string[]
+  /** The .git directory path (may differ from worktree for worktrees) */
+  vcsDir?: string
+}
 
 export const DEFAULT_SERVER_URL = 'http://localhost:4096'
 
