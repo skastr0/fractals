@@ -1,7 +1,7 @@
 'use client'
 
 import { use$ } from '@legendapp/state/react'
-import { Coins, Gauge, Pencil, Square, Trash2, Zap } from 'lucide-react'
+import { Coins, Gauge, Pencil, Square, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   DiffPane,
@@ -56,15 +56,18 @@ function buildTooltipContent(
   if (parentLabel) lines.push(`Parent: ${parentLabel}`)
 
   const { tokens } = stats
-  if (tokens.input > 0 || tokens.output > 0) {
-    const effectiveLimit = contextLimit ?? DEFAULT_CONTEXT_LIMIT
-    const contextPercent =
-      tokens.currentContext > 0 ? Math.min(100, (tokens.currentContext / effectiveLimit) * 100) : 0
+  const effectiveLimit = contextLimit ?? DEFAULT_CONTEXT_LIMIT
+  const contextPercent =
+    tokens.currentContext > 0 ? Math.min(100, (tokens.currentContext / effectiveLimit) * 100) : null
+
+  if (contextPercent !== null) {
     lines.push(
       `Context: ${contextPercent.toFixed(0)}% (${formatNumber(tokens.currentContext)} tokens)`,
     )
-    lines.push(`Output: ${formatNumber(tokens.output)} tokens`)
-    if (tokens.cost > 0) lines.push(`Cost: ${formatCost(tokens.cost)}`)
+  }
+
+  if (tokens.cost > 0) {
+    lines.push(`Cost: ${formatCost(tokens.cost)}`)
   }
 
   return lines.join('\n')
@@ -172,7 +175,6 @@ export function SessionPaneHeaderContent({ sessionKey }: { sessionKey: string })
     sessionStats.tokens.currentContext > 0
       ? Math.min(100, (sessionStats.tokens.currentContext / effectiveLimit) * 100)
       : null
-  const hasTokenData = sessionStats.tokens.input > 0 || sessionStats.tokens.output > 0
   const statusType = typeof status === 'string' ? status : (status?.type ?? 'idle')
 
   return (
@@ -187,12 +189,7 @@ export function SessionPaneHeaderContent({ sessionKey }: { sessionKey: string })
           <span className="tabular-nums">{contextPercent.toFixed(0)}%</span>
         </span>
       )}
-      {hasTokenData && (
-        <span className="flex items-center gap-0.5">
-          <Zap className="h-3 w-3" />
-          <span className="tabular-nums">{formatNumber(sessionStats.tokens.output)}</span>
-        </span>
-      )}
+
       {sessionStats.tokens.cost > 0 && (
         <span className="flex items-center gap-0.5">
           <Coins className="h-3 w-3" />

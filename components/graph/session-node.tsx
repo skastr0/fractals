@@ -32,12 +32,6 @@ import type { FileDiff, SessionNodeData, SessionStatus } from '@/types'
 // Default context limit for common models when we can't look it up
 const DEFAULT_CONTEXT_LIMIT = 200_000
 
-function formatNumber(num: number): string {
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`
-  return num.toString()
-}
-
 function formatCost(cost: number): string {
   if (cost === 0) return '$0'
   if (cost < 0.01) return `$${cost.toFixed(4)}`
@@ -50,6 +44,18 @@ function isAssistantMessage(message: Message): message is AssistantMessage {
 
 function isUserMessage(message: Message): message is UserMessage {
   return message.role === 'user'
+}
+
+/** Compute total tokens (input + output + reasoning + cache) for context window usage */
+function computeContextTokens(tokens: AssistantMessage['tokens'] | null | undefined): number {
+  if (!tokens) return 0
+  return (
+    (tokens.input ?? 0) +
+    (tokens.output ?? 0) +
+    (tokens.reasoning ?? 0) +
+    (tokens.cache?.read ?? 0) +
+    (tokens.cache?.write ?? 0)
+  )
 }
 
 /**
@@ -71,43 +77,35 @@ function getAgentName(messages: Message[] | undefined): string | undefined {
 }
 
 interface TokenStats {
-  output: number
   cost: number
   contextPercent: number | null
 }
 
 function computeTokenStats(messages: Message[] | undefined): TokenStats {
   if (!messages || messages.length === 0) {
-    return { output: 0, cost: 0, contextPercent: null }
+    return { cost: 0, contextPercent: null }
   }
 
   const assistantMessages = messages.filter(isAssistantMessage)
   if (assistantMessages.length === 0) {
-    return { output: 0, cost: 0, contextPercent: null }
+    return { cost: 0, contextPercent: null }
   }
 
   // Get current context from latest assistant message
   const latestAssistant = assistantMessages[assistantMessages.length - 1]
-  const currentContext = latestAssistant?.tokens?.input ?? 0
+  const currentContext = computeContextTokens(latestAssistant?.tokens)
 
-  // Aggregate output tokens and cost
-  let totalOutput = 0
-  let totalCost = 0
+  // Aggregate cost
+  let cost = 0
   for (const msg of assistantMessages) {
-    totalOutput += msg.tokens?.output ?? 0
-    totalCost += msg.cost ?? 0
+    cost += msg.cost ?? 0
   }
 
   // Calculate context percentage (using default limit)
-  // Show 0% if we have output but no context input (rather than hiding)
   const contextPercent =
-    currentContext > 0
-      ? Math.min(100, (currentContext / DEFAULT_CONTEXT_LIMIT) * 100)
-      : totalOutput > 0
-        ? 0
-        : null
+    currentContext > 0 ? Math.min(100, (currentContext / DEFAULT_CONTEXT_LIMIT) * 100) : null
 
-  return { output: totalOutput, cost: totalCost, contextPercent }
+  return { cost, contextPercent }
 }
 
 interface DiffStats {
@@ -329,15 +327,7 @@ export const SessionNode = memo(function SessionNode({
                 <span className="tabular-nums">{tokenStats.contextPercent.toFixed(0)}%</span>
               </span>
             )}
-            {tokenStats.output > 0 && (
-              <span
-                className="flex items-center gap-0.5"
-                title={`Output: ${tokenStats.output.toLocaleString()} tokens`}
-              >
-                <Zap className="h-2.5 w-2.5" />
-                <span className="tabular-nums">{formatNumber(tokenStats.output)}</span>
-              </span>
-            )}
+
             {tokenStats.cost > 0 && (
               <span
                 className="flex items-center gap-0.5"
