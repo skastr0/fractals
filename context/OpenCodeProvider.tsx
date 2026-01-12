@@ -1,7 +1,16 @@
 'use client'
 
-import { createContext, type ReactNode, useContext, useMemo } from 'react'
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 
+import { InitModal, readInitAcknowledged } from '@/components/init-modal'
 import { type ServerCompatibility, useServerConnection } from '@/hooks/useServerConnection'
 import { createClient, type OpencodeClient, type ServerHealth } from '@/lib/opencode'
 
@@ -22,6 +31,16 @@ export interface OpenCodeContextValue {
 const OpenCodeContext = createContext<OpenCodeContextValue | null>(null)
 
 export function OpenCodeProvider({ children }: { children: ReactNode }) {
+  const [isAcknowledged, setIsAcknowledged] = useState<boolean | null>(null)
+  const [showModal, setShowModal] = useState(false)
+
+  // Check localStorage on mount
+  useEffect(() => {
+    const acknowledged = readInitAcknowledged()
+    setIsAcknowledged(acknowledged)
+    setShowModal(!acknowledged)
+  }, [])
+
   const {
     url,
     health,
@@ -33,7 +52,14 @@ export function OpenCodeProvider({ children }: { children: ReactNode }) {
     connect,
     disconnect,
     scanForServers,
-  } = useServerConnection()
+  } = useServerConnection({ autoConnect: isAcknowledged === true })
+
+  const handleInitConfirm = useCallback(() => {
+    setIsAcknowledged(true)
+    setShowModal(false)
+    // Trigger connection after acknowledgment
+    void connect()
+  }, [connect])
 
   const client = useMemo(() => {
     if (!health?.connected) {
@@ -73,7 +99,12 @@ export function OpenCodeProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  return <OpenCodeContext.Provider value={value}>{children}</OpenCodeContext.Provider>
+  return (
+    <OpenCodeContext.Provider value={value}>
+      {children}
+      <InitModal isOpen={showModal} onConfirm={handleInitConfirm} />
+    </OpenCodeContext.Provider>
+  )
 }
 
 export function useOpenCode(): OpenCodeContextValue {

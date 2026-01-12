@@ -21,6 +21,11 @@ const MIN_SERVER_VERSION = '0.0.0'
 
 export type ServerCompatibility = 'compatible' | 'incompatible' | 'unknown'
 
+export interface ServerConnectionOptions {
+  /** If false, auto-connect is disabled until connect() is called manually */
+  autoConnect?: boolean
+}
+
 export interface ServerConnection {
   url: string
   health: ServerHealth | null
@@ -122,7 +127,8 @@ const readStoredServers = (): string[] => {
   }
 }
 
-export function useServerConnection(): ServerConnection {
+export function useServerConnection(options: ServerConnectionOptions = {}): ServerConnection {
+  const { autoConnect = true } = options
   const [url, setUrl] = useState(DEFAULT_SERVER_URL)
   const [health, setHealth] = useState<ServerHealth | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -263,15 +269,20 @@ export function useServerConnection(): ServerConnection {
   }, [knownServers, runHealthCheck])
 
   useEffect(() => {
-    const storedUrl = readStoredValue(STORAGE_KEYS.lastUrl)
     const storedServers = readStoredServers()
+    setKnownServers(unique([...storedServers, ...DEFAULT_SERVER_URLS]))
+
+    // Skip auto-connect if disabled (e.g., waiting for init modal confirmation)
+    if (!autoConnect) {
+      return
+    }
+
+    const storedUrl = readStoredValue(STORAGE_KEYS.lastUrl)
     const candidates = unique([
       storedUrl ? normalizeUrl(storedUrl) : '',
       ...storedServers.map(normalizeUrl),
       ...DEFAULT_SERVER_URLS,
     ])
-
-    setKnownServers(unique([...storedServers, ...DEFAULT_SERVER_URLS]))
 
     if (candidates.length === 0) {
       return
@@ -315,7 +326,7 @@ export function useServerConnection(): ServerConnection {
     }
 
     void attempt()
-  }, [applyHealth, runHealthCheck, scheduleReconnect])
+  }, [applyHealth, autoConnect, runHealthCheck, scheduleReconnect])
 
   useEffect(() => {
     if (!health?.connected || !url) {
