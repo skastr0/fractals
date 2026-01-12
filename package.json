@@ -1,8 +1,21 @@
 {
   "name": "fractals",
   "version": "0.1.0",
+  "description": "Graph-native UI for OpenCode. See your agents as a tree. Track subagents in real-time.",
   "author": "Guilherme Castro <skastr052@gmail.com>",
   "license": "MIT",
+  "homepage": "https://fractals.sh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skastr0/fractals.git"
+  },
+  "keywords": [
+    "opencode",
+    "ai-agents",
+    "visualization",
+    "multi-agent",
+    "developer-tools"
+  ],
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
