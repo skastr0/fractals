@@ -1,48 +1,46 @@
 # Fractals
 
-A visual tree-based frontend for [OpenCode](https://github.com/anomalyco/opencode) agent sessions.
+**See the tree. Control the swarm.**
 
-Fractals displays your OpenCode sessions as an interactive graph, making it easy to visualize subagent hierarchies, navigate between sessions, and monitor agent activity in real-time.
+A graph-native interface for [OpenCode](https://github.com/anomalyco/opencode). Visualize sessions, track subagents, and control parallel workflows—all in one view.
+
+OpenCode is powerful. But when you're running parallel sessions with subagents spawning subagents, the terminal becomes a wall of text. Fractals gives you a graph. You see which agents are running, what they're working on, and how they relate to each other. Click a node to inspect it. Open multiple panes to compare sessions. Watch token usage climb in real-time.
 
 ## Features
 
-- **Session Graph** - Visualize sessions as nodes in an interactive tree layout
-- **Subagent Visualization** - See parent-child relationships between agents
-- **Real-time Updates** - Live streaming via SSE from OpenCode server
-- **Multi-project Support** - Switch between projects seamlessly
-- **Pane System** - Multi-pane interface for side-by-side session views
-- **Session Input** - Send messages to agents, fork conversations
-- **Command Palette** - Quick access to actions and slash commands
-- **Diff Viewer** - See file changes made by agents
+- **Session Graph** — Every session is a node. Subagents branch off naturally. Zoom, pan, and click to explore the tree.
+- **Subagent Visualization** — Depth-based coloring shows you the hierarchy at a glance. Parent agents connect to children. You see the structure, not just the list.
+- **Real-time Updates** — SSE streaming from OpenCode. No polling, no refresh. Watch agents work as they work.
+- **Multi-project Support** — Switch projects without restarting. Your sessions stay organized by project.
+- **Pane System** — Open sessions side-by-side. Compare outputs. Monitor multiple agents without tab-switching.
+- **Token Stats** — Cost and context usage per session. Know when you're burning tokens before you hit the limit.
+- **Diff Viewer** — See exactly what files your agent touched and what changed. Code review without digging.
+- **Command Palette** — `Cmd+K` to do anything. Slash commands, navigation, actions—all searchable.
+- **Keyboard Navigation** — Arrow keys, shortcuts, focus management. Built for people who don't want to touch a mouse.
 
-## Prerequisites
-
-- [Bun](https://bun.sh/) runtime
-- [OpenCode](https://github.com/anomalyco/opencode) installed
-
-## Installation
+## Quick Start
 
 ```bash
+# Clone and install
 git clone https://github.com/skastr0/fractals.git
 cd fractals
 bun install
+
+# Start OpenCode server in your project
+opencode serve
+
+# Start Fractals
+bun dev
 ```
 
-## Usage
+Open [http://localhost:3000](http://localhost:3000) — Fractals auto-discovers your OpenCode server.
 
-1. **Start OpenCode server** in your project directory:
-   ```bash
-   opencode serve
-   ```
+**Zero config.** Works with your stock OpenCode server. No forks, no migrations, just connect.
 
-2. **Start Fractals**:
-   ```bash
-   bun run dev
-   ```
+### Prerequisites
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-4. Fractals auto-discovers the OpenCode server (default: localhost:5577)
+- [Bun](https://bun.sh/) runtime
+- [OpenCode](https://github.com/anomalyco/opencode) running locally
 
 ### Keyboard Shortcuts
 
@@ -78,3 +76,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## License
 
 [MIT](LICENSE)
+
+---
+
+**Run 20 agents. See them all.** → [fractals.sh](https://fractals.sh)

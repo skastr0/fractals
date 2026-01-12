@@ -1,17 +1,19 @@
 # Fractals
 
-Visual tree-based frontend for OpenCode agent sessions. https://fractals.sh
+**See the tree. Control the swarm.** → https://fractals.sh
 
 ## Project Overview
 
-This is a React/Next.js application that provides a visual interface for OpenCode's local agent server. It displays sessions (including subagent hierarchies) as an interactive tree using ReactFlow.
+Graph-native interface for OpenCode. Visualize sessions, track subagents, and control parallel workflows—all in one view.
+
+When you're running parallel sessions with subagents spawning subagents, the terminal becomes a wall of text. Fractals gives you a graph. You see which agents are running, what they're working on, and how they relate to each other.
 
 ## Key Concepts
 
-- **Sessions as Nodes**: Each OpenCode session is displayed as a node in the tree
-- **Subagent Visualization**: Sessions have `parentID` and `depth` fields that create the hierarchy
-- **Pane System**: Multi-pane interface for viewing session details, configurations, and metadata
-- **SSE Sync**: Real-time updates via Server-Sent Events from OpenCode server
+- **Sessions as Nodes**: Every session is a node. Subagents branch off naturally. You see the structure, not just the list.
+- **Subagent Hierarchy**: Sessions have `parentID` and `depth` fields. Depth-based coloring shows the tree at a glance.
+- **Pane System**: Open sessions side-by-side. Compare outputs. Monitor multiple agents without tab-switching.
+- **Real-time Sync**: SSE streaming from OpenCode. No polling, no refresh. Watch agents work as they work.
 
 ## Tech Stack
 
