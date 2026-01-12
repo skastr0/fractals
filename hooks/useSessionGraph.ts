@@ -17,7 +17,7 @@ import {
   treeToFlowElements,
 } from '@/lib/graph/tree-builder'
 import type { Session } from '@/lib/opencode'
-import { formatProjectLabel, parseSessionKey } from '@/lib/utils'
+import { buildDirectoryToProjectMap, formatProjectLabel, parseSessionKey } from '@/lib/utils'
 import type { SessionNodeData, SessionStatus, SubagentGroupData } from '@/types'
 
 import { useSessions } from './useSessions'
@@ -239,6 +239,8 @@ const areSessionNodeDataEqual = (a: SessionNodeData, b: SessionNodeData): boolea
     a.sessionKey === b.sessionKey &&
     a.title === b.title &&
     a.projectLabel === b.projectLabel &&
+    a.isWorktree === b.isWorktree &&
+    a.worktreeName === b.worktreeName &&
     a.status === b.status &&
     a.depth === b.depth &&
     a.isSubagent === b.isSubagent &&
@@ -305,8 +307,9 @@ export function useSessionGraph() {
     return map
   }, [sessions])
 
+  // Build map that includes both main worktrees AND sandbox directories
   const projectByDirectory = useMemo(() => {
-    return new Map(projects.map((project) => [project.worktree, project]))
+    return buildDirectoryToProjectMap(projects)
   }, [projects])
 
   const resolveProjectLabel = useCallback(
@@ -314,7 +317,7 @@ export function useSessionGraph() {
       const directory =
         directoryBySessionKey.get(sessionKey) ?? parseSessionKey(sessionKey)?.directory
       const project = directory ? projectByDirectory.get(directory) : undefined
-      return formatProjectLabel(project, directory).label
+      return formatProjectLabel(project, directory)
     },
     [directoryBySessionKey, projectByDirectory],
   )
@@ -568,7 +571,7 @@ export function useSessionGraph() {
       const isMostRecent = node.id === mostRecentSessionId
       const age = referenceTime - node.data.updatedAt
       const isStale = age > STALE_THRESHOLD_MS
-      const projectLabel = resolveProjectLabel(node.data.sessionKey)
+      const projectLabelInfo = resolveProjectLabel(node.data.sessionKey)
 
       const nextData: SessionNodeData = {
         ...node.data,
@@ -577,7 +580,9 @@ export function useSessionGraph() {
         isHighlighted: highlightedSessions.has(node.id),
         isMostRecent,
         isStale,
-        projectLabel,
+        projectLabel: projectLabelInfo.label,
+        isWorktree: projectLabelInfo.isWorktree,
+        worktreeName: projectLabelInfo.worktreeName,
       }
 
       const cached = nodeDataCache.get(node.id)
