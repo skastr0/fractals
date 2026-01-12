@@ -12,7 +12,7 @@ import {
 } from '@/lib/commands'
 import type { LocalCommandDefinition, SdkCommandDefinition } from '@/types'
 
-const RECENT_COMMANDS_KEY = 'opencode-tree-ui:recent-commands'
+const RECENT_COMMANDS_KEY = 'fractals:recent-commands'
 const MAX_RECENT_COMMANDS = 10
 
 const normalizeCommandId = (value: string): string => value.trim().toLowerCase()

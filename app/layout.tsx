@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'OpenCode Tree UI',
-  description: 'Visual tree-based UI for OpenCode agent sessions',
+  title: 'Fractals',
+  description: 'Visual tree-based frontend for OpenCode agent sessions',
 }
 
 export default function RootLayout({

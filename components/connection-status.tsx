@@ -38,7 +38,7 @@ export function ConnectionStatus() {
     ? `Server ${health?.version ?? 'unknown'}`
     : error
       ? 'Server unavailable'
-      : 'OpenCode Tree UI'
+      : 'Fractals'
 
   const compatibilityLabel =
     compatibility === 'incompatible'

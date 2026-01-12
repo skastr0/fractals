@@ -1,6 +1,6 @@
-# OpenCode Tree UI
+# Fractals
 
-Visual tree-based frontend for OpenCode agent sessions.
+Visual tree-based frontend for OpenCode agent sessions. https://fractals.sh
 
 ## Project Overview
 
