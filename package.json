@@ -1,6 +1,8 @@
 {
-  "name": "opencode-tree-ui",
+  "name": "fractals",
   "version": "0.1.0",
+  "author": "Guilherme Castro <skastr052@gmail.com>",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

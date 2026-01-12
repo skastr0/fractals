@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOpenCode } from '@/context/OpenCodeProvider'
 import { getActiveProject, useProject } from '@/context/ProjectProvider'
 
-const RECENT_MODELS_KEY = 'opencode-tree-ui:recent-models'
-const LAST_MODEL_KEY = 'opencode-tree-ui:last-model'
+const RECENT_MODELS_KEY = 'fractals:recent-models'
+const LAST_MODEL_KEY = 'fractals:last-model'
 const MAX_RECENT_MODELS = 10
 
 /**
