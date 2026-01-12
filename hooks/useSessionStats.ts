@@ -18,7 +18,7 @@ export interface TokenStats {
   total: number
   /** Total cost in dollars */
   cost: number
-  /** Current context window usage (input tokens from latest assistant message) */
+  /** Current context window usage (total tokens from latest assistant message) */
   currentContext: number
 }
 
@@ -30,6 +30,20 @@ export interface SessionStats {
 
 function isAssistantMessage(message: Message): message is AssistantMessage {
   return message.role === 'assistant'
+}
+
+function computeTotalTokens(tokens: AssistantMessage['tokens'] | null | undefined): number {
+  if (!tokens) {
+    return 0
+  }
+
+  return (
+    (tokens.input ?? 0) +
+    (tokens.output ?? 0) +
+    (tokens.reasoning ?? 0) +
+    (tokens.cache?.read ?? 0) +
+    (tokens.cache?.write ?? 0)
+  )
 }
 
 /**
@@ -45,9 +59,9 @@ export function useSessionStats(messages: Message[]): SessionStats {
     const latestAssistant =
       assistantMessages.length > 0 ? assistantMessages[assistantMessages.length - 1] : null
 
-    // Current context is the input tokens from the latest API call
-    // This represents approximately how much of the context window is being used
-    const currentContext = latestAssistant?.tokens?.input ?? 0
+    // Current context is the total tokens from the latest assistant message
+    // This represents how much of the context window was used in that call
+    const currentContext = computeTotalTokens(latestAssistant?.tokens)
 
     const tokens = assistantMessages.reduce<TokenStats>(
       (acc, msg) => {

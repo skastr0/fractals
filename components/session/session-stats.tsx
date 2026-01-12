@@ -1,6 +1,6 @@
 'use client'
 
-import { Coins, Gauge, Square, Zap } from 'lucide-react'
+import { Coins, Gauge, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { SessionStats } from '@/hooks/useSessionStats'
 
@@ -9,16 +9,6 @@ interface SessionStatsDisplayProps {
   contextLimit: number | null
   isWorking: boolean
   onStop: () => void
-}
-
-function formatNumber(num: number): string {
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)}M`
-  }
-  if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(1)}K`
-  }
-  return num.toString()
 }
 
 function formatCost(cost: number): string {
@@ -83,24 +73,13 @@ export function SessionStatsDisplay({
         </div>
       )}
 
-      {/* Token Stats */}
-      {hasTokenData && (
+      {/* Cost */}
+      {tokens.cost > 0 && (
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-          {/* Total output */}
-          <span
-            className="flex items-center gap-1"
-            title={`Output: ${tokens.output.toLocaleString()} tokens`}
-          >
-            <Zap className="h-3 w-3" />
-            <span className="tabular-nums">{formatNumber(tokens.output)}</span>
+          <span className="flex items-center gap-1" title={`Cost: ${formatCost(tokens.cost)}`}>
+            <Coins className="h-3 w-3" />
+            <span className="tabular-nums">{formatCost(tokens.cost)}</span>
           </span>
-          {/* Cost */}
-          {tokens.cost > 0 && (
-            <span className="flex items-center gap-1" title={`Cost: ${formatCost(tokens.cost)}`}>
-              <Coins className="h-3 w-3" />
-              <span className="tabular-nums">{formatCost(tokens.cost)}</span>
-            </span>
-          )}
         </div>
       )}
 
