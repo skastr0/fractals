@@ -120,8 +120,22 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
     setIsPinned(true)
   }, [])
 
-  // Track virtualizer total size for auto-scroll
-  const totalSize = virtualizer.getTotalSize()
+  // Track virtualizer state to avoid flushSync during render
+  // Both getTotalSize() and getVirtualItems() call flushSync internally
+  const [totalSize, setTotalSize] = useState(0)
+  const [virtualItems, setVirtualItems] = useState<ReturnType<typeof virtualizer.getVirtualItems>>(
+    [],
+  )
+
+  // Sync virtualizer state outside React's lifecycle to avoid flushSync conflicts
+  // queueMicrotask defers execution until after React's commit phase completes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: flatItems.length triggers remeasurement when items change
+  useEffect(() => {
+    queueMicrotask(() => {
+      setTotalSize(virtualizer.getTotalSize())
+      setVirtualItems(virtualizer.getVirtualItems())
+    })
+  }, [virtualizer, flatItems.length])
 
   // Auto-scroll to bottom when pinned and content height changes
   useEffect(() => {
@@ -144,7 +158,11 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
 
     setIsPinned(atBottom)
     setShowScrollButton(!atBottom)
-  }, [])
+
+    // Update virtual items on scroll (outside render phase, so safe to call)
+    setVirtualItems(virtualizer.getVirtualItems())
+    setTotalSize(virtualizer.getTotalSize())
+  }, [virtualizer])
 
   if (messages.length === 0) {
     return (
@@ -167,7 +185,7 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
         {/* Total size container for proper scrollbar */}
         <div
           style={{
-            height: virtualizer.getTotalSize(),
+            height: totalSize,
             width: '100%',
             position: 'relative',
           }}
@@ -179,10 +197,10 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
               top: 0,
               left: 0,
               width: '100%',
-              transform: `translateY(${virtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
+              transform: `translateY(${virtualItems[0]?.start ?? 0}px)`,
             }}
           >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
+            {virtualItems.map((virtualRow) => {
               const item = flatItems[virtualRow.index]
               if (!item) return null
 
