@@ -1,6 +1,6 @@
 # Fractals
 
-A visual tree-based frontend for [OpenCode](https://github.com/opencode-ai/opencode) agent sessions.
+A visual tree-based frontend for [OpenCode](https://github.com/anomalyco/opencode) agent sessions.
 
 Fractals displays your OpenCode sessions as an interactive graph, making it easy to visualize subagent hierarchies, navigate between sessions, and monitor agent activity in real-time.
 
@@ -18,29 +18,31 @@ Fractals displays your OpenCode sessions as an interactive graph, making it easy
 ## Prerequisites
 
 - [Bun](https://bun.sh/) runtime
-- [OpenCode](https://github.com/opencode-ai/opencode) server running locally
+- [OpenCode](https://github.com/anomalyco/opencode) installed
 
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/fractals-sh/fractals.git
+git clone https://github.com/skastr0/fractals.git
 cd fractals
-
-# Install dependencies
 bun install
-
-# Start development server
-bun dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Usage
 
-1. **Start OpenCode** - Run OpenCode in your project directory
-2. **Connect** - Fractals auto-discovers the OpenCode server (default: localhost:5577)
-3. **Explore** - Click session nodes to view details, expand subagents, send messages
+1. **Start OpenCode server** in your project directory:
+   ```bash
+   opencode serve
+   ```
+
+2. **Start Fractals**:
+   ```bash
+   bun run dev
+   ```
+
+3. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+4. Fractals auto-discovers the OpenCode server (default: localhost:5577)
 
 ### Keyboard Shortcuts
 
@@ -51,71 +53,28 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `Escape` | Close panes/dialogs |
 | Arrow keys | Navigate graph |
 
-## Tech Stack
-
-- **Framework**: [Next.js 15+](https://nextjs.org/) with App Router
-- **UI**: [React Aria](https://react-spectrum.adobe.com/react-aria/) for accessible components
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) with tailwind-variants
-- **Graph**: [ReactFlow](https://reactflow.dev/) for node visualization
-- **State**: [Legend State](https://legendapp.com/open-source/state/) for reactive state
-- **Backend**: [@opencode-ai/sdk](https://www.npmjs.com/package/@opencode-ai/sdk) for server communication
-
-## Project Structure
-
-```
-app/                    # Next.js App Router pages
-components/
-├── ui/                 # React Aria primitives (Button, Input, etc.)
-├── graph/              # ReactFlow components (SessionNode, SessionGraph)
-├── panes/              # Pane system (SessionPane, DiffPane, etc.)
-└── session/            # Session view components (MessageList, Parts)
-context/                # React context providers
-hooks/                  # Custom React hooks
-lib/
-├── opencode/           # OpenCode SDK wrappers
-├── commands/           # Command system
-├── graph/              # Tree building and layout
-└── utils/              # Utility functions
-types/                  # TypeScript type definitions
-```
-
 ## Development
 
 ```bash
-# Run development server with Turbopack
-bun dev
-
-# Run linter (Biome)
-bun lint
-
-# Fix lint issues
-bun lint:fix
-
-# Type check
-bun run check
-
-# Run tests
-bun test
+bun install        # Install dependencies
+bun run dev        # Start dev server
+bun run build      # Production build
+bun run check      # Lint + type check
+bun test           # Run tests
 ```
 
-## Configuration
+## Tech Stack
 
-Fractals connects to OpenCode's local server. Configure the server URL in the connection dialog if using a non-default port.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Server URL | `http://localhost:5577` | OpenCode server address |
-| Session Filter | Last 6 hours | Time range for displayed sessions |
+- [Next.js](https://nextjs.org/) with App Router
+- [React Aria](https://react-spectrum.adobe.com/react-aria/) for accessible components
+- [Tailwind CSS](https://tailwindcss.com/) with tailwind-variants
+- [ReactFlow](https://reactflow.dev/) for node visualization
+- [Legend State](https://legendapp.com/open-source/state/) for reactive state
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
 [MIT](LICENSE)
-
-## Links
-
-- [Website](https://fractals.sh)
-- [OpenCode](https://github.com/opencode-ai/opencode)

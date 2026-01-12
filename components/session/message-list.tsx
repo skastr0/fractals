@@ -7,6 +7,7 @@ import { useSync } from '@/context/SyncProvider'
 import { usePartsForMessages } from '@/hooks/useParts'
 import { useSession } from '@/hooks/useSession'
 import { useSessions } from '@/hooks/useSessions'
+import type { ToolPart } from '@/lib/opencode'
 import { type FlatItem, type FlatItemsCache, flattenMessages } from '@/lib/session/flat-items'
 
 import { FlatItemRenderer } from './flat-item-renderer'
@@ -28,24 +29,44 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const flatItemCache = useRef<FlatItemsCache>(new Map())
+  // Height measurement cache for stable backward scrolling
+  // This prevents the "jumping when scrolling up" issue (TanStack Virtual #659)
+  const measurementCache = useRef<Map<number, number>>(new Map())
 
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isPinned, setIsPinned] = useState(true)
 
-  // Simple expansion state: user overrides (true = force expanded, false = force collapsed)
-  // If not in map, use default behavior
+  // Expansion state management:
+  // - userOverrides: explicit user clicks (takes highest priority)
+  // - seenWhileStreaming: items that were expanded during streaming (stay expanded after completion)
   const [userOverrides, setUserOverrides] = useState<Map<string, boolean>>(new Map())
+  const [seenWhileStreaming, setSeenWhileStreaming] = useState<Set<string>>(new Set())
 
+  // Clear caches when session changes
   useEffect(() => {
     void sessionKey
     flatItemCache.current.clear()
+    measurementCache.current.clear()
+    setUserOverrides(new Map())
+    setSeenWhileStreaming(new Set())
   }, [sessionKey])
 
-  // Helper to check if a part should be expanded by default
+  // Helper to check if a part should be expanded by default (for non-streaming, never-interacted items)
   const shouldExpandByDefault = useCallback((item: FlatItem): boolean => {
     if (item.type !== 'part') return false
 
-    // Non-streaming parts default to collapsed (streaming handled elsewhere)
+    const partType = item.part.type
+
+    // Text parts: expand by default (main content users want to see)
+    if (partType === 'text') return true
+
+    // Edit tools: expand by default (file changes are important)
+    if (partType === 'tool') {
+      const toolPart = item.part as ToolPart
+      if (toolPart.tool === 'edit') return true
+    }
+
+    // Everything else: collapsed by default
     return false
   }, [])
 
@@ -61,21 +82,26 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
   // Check if an item is expanded
   const getIsExpanded = useCallback(
     (item: FlatItem): boolean => {
-      // Streaming items are always expanded
-      if (item.type === 'part' && item.isStreaming) {
-        return true
-      }
-
-      // Check for user override
+      // 1. User override takes highest priority (explicit clicks)
       const override = userOverrides.get(item.id)
       if (override !== undefined) {
         return override
       }
 
-      // Use default behavior
+      // 2. Currently streaming items are always expanded
+      if (item.type === 'part' && item.isStreaming) {
+        return true
+      }
+
+      // 3. Items that were streaming stay expanded after completion
+      if (seenWhileStreaming.has(item.id)) {
+        return true
+      }
+
+      // 4. Use type-based defaults for items never seen streaming
       return shouldExpandByDefault(item)
     },
-    [userOverrides, shouldExpandByDefault],
+    [userOverrides, seenWhileStreaming, shouldExpandByDefault],
   )
 
   // Memoize sorted messages once
@@ -88,6 +114,27 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
   const flatItems = useMemo(() => {
     return flattenMessages({ messages: sortedMessages, getParts, cache: flatItemCache.current })
   }, [sortedMessages, getParts])
+
+  // Track items that are currently streaming (so they stay expanded after completion)
+  useEffect(() => {
+    const streamingIds = flatItems
+      .filter((item) => item.type === 'part' && item.isStreaming)
+      .map((item) => item.id)
+
+    if (streamingIds.length > 0) {
+      setSeenWhileStreaming((prev) => {
+        // Only update if there are new streaming items to add
+        const hasNew = streamingIds.some((id) => !prev.has(id))
+        if (!hasNew) return prev
+
+        const next = new Set(prev)
+        for (const id of streamingIds) {
+          next.add(id)
+        }
+        return next
+      })
+    }
+  }, [flatItems])
 
   // Compute fork counts - count child sessions that reference each message
   const forkCounts = useMemo(() => {
@@ -103,11 +150,58 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
   }, [childSessions, state$])
 
   // Virtualizer for efficient rendering
+  // Key fixes for dynamic height stability:
+  // 1. Better estimateSize - closer to average expanded size reduces layout shifts
+  // 2. Custom measureElement - avoid remeasuring when scrolling backward (prevents jumps)
+  // 3. getItemKey - stable keys prevent index-based remeasurement chaos
   const virtualizer = useVirtualizer({
     count: flatItems.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 32, // Compact collapsed height
-    measureElement: (el) => el.getBoundingClientRect().height,
+    // Better estimate: collapsed ~32px, expanded text ~120px, expanded tool ~200px
+    // Using a middle-ground estimate reduces initial layout thrash
+    estimateSize: (index) => {
+      const item = flatItems[index]
+      if (!item || item.type !== 'part') return 40 // Headers/user messages
+
+      // Estimate based on whether item will likely be expanded
+      const willExpand =
+        userOverrides.get(item.id) ?? seenWhileStreaming.has(item.id) ?? shouldExpandByDefault(item)
+
+      if (!willExpand) return 32 // Collapsed preview row
+
+      // Expanded estimates by part type
+      const partType = item.part.type
+      if (partType === 'text') return 150 // Text content varies, use reasonable middle
+      if (partType === 'tool') return 120 // Tool output
+      if (partType === 'reasoning') return 100 // Chain of thought
+      return 80 // Other expanded parts
+    },
+    // Stable keys based on item.id (not index) - critical for dynamic lists
+    getItemKey: (index) => flatItems[index]?.id ?? index,
+    // Custom measureElement: don't remeasure when scrolling backward
+    // This is the fix for the "jumping when scrolling up" issue (TanStack Virtual #659)
+    measureElement: (element, _entry, instance) => {
+      const indexKey = Number(element.getAttribute('data-index'))
+      const direction = instance.scrollDirection
+
+      // When scrolling forward or initially rendering, measure and cache
+      if (direction === 'forward' || direction === null) {
+        const height = element.getBoundingClientRect().height
+        measurementCache.current.set(indexKey, height)
+        return height
+      }
+
+      // When scrolling backward, prefer cached measurement to prevent jumps
+      const cachedSize = measurementCache.current.get(indexKey)
+      if (cachedSize !== undefined) {
+        return cachedSize
+      }
+
+      // Fallback to measurement if no cache
+      const height = element.getBoundingClientRect().height
+      measurementCache.current.set(indexKey, height)
+      return height
+    },
     overscan: 5,
   })
 
@@ -120,22 +214,57 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
     setIsPinned(true)
   }, [])
 
-  // Track virtualizer state to avoid flushSync during render
-  // Both getTotalSize() and getVirtualItems() call flushSync internally
-  const [totalSize, setTotalSize] = useState(0)
-  const [virtualItems, setVirtualItems] = useState<ReturnType<typeof virtualizer.getVirtualItems>>(
-    [],
-  )
+  // Use virtualizer's onChange callback for reactive updates instead of manual sync
+  // This avoids the queueMicrotask race conditions that cause delayed rendering
+  const [virtualizerState, setVirtualizerState] = useState({
+    totalSize: 0,
+    items: [] as ReturnType<typeof virtualizer.getVirtualItems>,
+  })
 
-  // Sync virtualizer state outside React's lifecycle to avoid flushSync conflicts
-  // queueMicrotask defers execution until after React's commit phase completes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: flatItems.length triggers remeasurement when items change
+  // Subscribe to virtualizer changes
   useEffect(() => {
-    queueMicrotask(() => {
-      setTotalSize(virtualizer.getTotalSize())
-      setVirtualItems(virtualizer.getVirtualItems())
+    // Initial sync
+    setVirtualizerState({
+      totalSize: virtualizer.getTotalSize(),
+      items: virtualizer.getVirtualItems(),
     })
-  }, [virtualizer, flatItems.length])
+
+    // The virtualizer notifies us through its internal measurement system
+    // We use a ResizeObserver on the scroll container to catch size changes
+    const scrollElement = scrollRef.current
+    if (!scrollElement) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      // Debounce rapid resize events
+      requestAnimationFrame(() => {
+        setVirtualizerState({
+          totalSize: virtualizer.getTotalSize(),
+          items: virtualizer.getVirtualItems(),
+        })
+      })
+    })
+
+    resizeObserver.observe(scrollElement)
+    return () => resizeObserver.disconnect()
+  }, [virtualizer])
+
+  // Also update on flatItems changes (new messages, parts)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: flatItems.length triggers recalculation when items change
+  useEffect(() => {
+    // Clear measurement cache when items change significantly
+    // This ensures new items get properly measured
+    measurementCache.current.clear()
+
+    // Force virtualizer to recalculate
+    requestAnimationFrame(() => {
+      setVirtualizerState({
+        totalSize: virtualizer.getTotalSize(),
+        items: virtualizer.getVirtualItems(),
+      })
+    })
+  }, [flatItems.length, virtualizer])
+
+  const { totalSize, items: virtualItems } = virtualizerState
 
   // Auto-scroll to bottom when pinned and content height changes
   useEffect(() => {
@@ -160,8 +289,10 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
     setShowScrollButton(!atBottom)
 
     // Update virtual items on scroll (outside render phase, so safe to call)
-    setVirtualItems(virtualizer.getVirtualItems())
-    setTotalSize(virtualizer.getTotalSize())
+    setVirtualizerState({
+      totalSize: virtualizer.getTotalSize(),
+      items: virtualizer.getVirtualItems(),
+    })
   }, [virtualizer])
 
   if (messages.length === 0) {
