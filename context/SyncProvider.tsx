@@ -15,6 +15,7 @@ import {
 import type { Event, GlobalEvent, Message, Part, Session, SessionStatus } from '@/lib/opencode'
 import { getSessionErrorSignature } from '@/lib/opencode/errors'
 import { buildSessionKey, parseSessionKey } from '@/lib/utils/session-key'
+import { getProjectDirectories } from '@/lib/utils/worktree'
 import { useOpenCode } from './OpenCodeProvider'
 import { useProject } from './ProjectProvider'
 
@@ -593,27 +594,47 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       try {
         const projectsResult = await activeClient.project.list()
         const allProjects = projectsResult.data ?? []
-        // Filter out junk/temporary projects to avoid loading hundreds of sandbox sessions
+        // Filter out junk/temporary projects
         const validProjects = allProjects.filter((p) => p.worktree && !isJunkProject(p.worktree))
+
+        // Build list of ALL directories to fetch sessions from (worktree + sandboxes)
+        // Deduplicate in case same directory appears in multiple projects
+        const allDirectories: Array<{ directory: string; project: (typeof validProjects)[0] }> = []
+        const seenDirectories = new Set<string>()
+
+        for (const project of validProjects) {
+          // Get all directories for this project (worktree + sandboxes)
+          const directories = getProjectDirectories(project)
+          for (const directory of directories) {
+            // Skip junk directories and duplicates
+            if (!isJunkProject(directory) && !seenDirectories.has(directory)) {
+              seenDirectories.add(directory)
+              allDirectories.push({ directory, project })
+            }
+          }
+        }
+
         const sessionsMap: Record<string, Session> = {}
 
         let nextIndex = 0
-        const workerCount = Math.min(SESSION_LIST_CONCURRENCY, validProjects.length)
+        const workerCount = Math.min(SESSION_LIST_CONCURRENCY, allDirectories.length)
         const workers = Array.from({ length: workerCount }, async () => {
-          while (nextIndex < validProjects.length) {
-            const project = validProjects[nextIndex]
+          while (nextIndex < allDirectories.length) {
+            const item = allDirectories[nextIndex]
             nextIndex += 1
             if (signal?.aborted) {
               return
             }
-            if (!project) {
+            if (!item) {
               continue
             }
 
-            const result = await activeClient.session.list({ directory: project.worktree })
+            const result = await activeClient.session.list({ directory: item.directory })
             const sessions = result.data ?? []
             for (const session of sessions) {
-              sessionsMap[buildSessionKey(project.worktree, session.id)] = session
+              // Use session.directory if available, otherwise fall back to the directory we queried
+              const sessionDir = session.directory || item.directory
+              sessionsMap[buildSessionKey(sessionDir, session.id)] = session
             }
           }
         })
