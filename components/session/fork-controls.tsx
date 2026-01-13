@@ -8,6 +8,7 @@ import { useOpenCode } from '@/context/OpenCodeProvider'
 import { usePanes } from '@/context/PanesProvider'
 import { useProject } from '@/context/ProjectProvider'
 import { useSession } from '@/hooks/useSession'
+import { useSessionStatus } from '@/hooks/useSessionStatus'
 import { buildSessionKey, resolveSessionKey } from '@/lib/utils/session-key'
 
 interface ForkControlsProps {
@@ -99,10 +100,11 @@ interface RevertControlsProps {
 }
 
 export const RevertControls = memo(function RevertControls({ sessionKey }: RevertControlsProps) {
-  const { session, messages, isWorking } = useSession(sessionKey)
+  const { session, messages, abort } = useSession(sessionKey)
   const { client } = useOpenCode()
   const { currentProject, projects } = useProject()
   const [isUpdating, setIsUpdating] = useState(false)
+  const liveStatus = useSessionStatus(sessionKey)
 
   const sessionLookup = useMemo(() => {
     const resolved = resolveSessionKey(sessionKey, projects)
@@ -124,8 +126,26 @@ export const RevertControls = memo(function RevertControls({ sessionKey }: Rever
   }, [currentProject, projects, sessionKey])
 
   const userMessages = messages.filter((message) => message.role === 'user')
-  const canUndo = userMessages.length > 0 && !isWorking && !isUpdating
-  const canRedo = Boolean(session?.revert?.messageID) && !isWorking && !isUpdating
+  // Allow undo even when busy (we'll abort first) - just check for user messages
+  const canUndo = userMessages.length > 0 && !isUpdating
+  const canRedo = Boolean(session?.revert?.messageID) && !isUpdating
+
+  // Helper to ensure session is idle before revert operations
+  const ensureIdle = useCallback(async (): Promise<boolean> => {
+    const statusType = typeof liveStatus === 'string' ? liveStatus : (liveStatus?.type ?? 'idle')
+    if (statusType === 'idle') {
+      return true
+    }
+    // Need to abort first
+    try {
+      await abort()
+      // Give a small delay for the abort to propagate
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      return true
+    } catch {
+      return false
+    }
+  }, [liveStatus, abort])
 
   const handleUndo = useCallback(async () => {
     if (!canUndo || !client || !sessionLookup) {
@@ -139,6 +159,12 @@ export const RevertControls = memo(function RevertControls({ sessionKey }: Rever
 
     setIsUpdating(true)
     try {
+      // Abort first if session is busy
+      const isIdle = await ensureIdle()
+      if (!isIdle) {
+        return
+      }
+
       await client.session.revert(
         {
           sessionID: sessionLookup.sessionId,
@@ -150,7 +176,7 @@ export const RevertControls = memo(function RevertControls({ sessionKey }: Rever
     } finally {
       setIsUpdating(false)
     }
-  }, [canUndo, client, sessionLookup, userMessages])
+  }, [canUndo, client, sessionLookup, userMessages, ensureIdle])
 
   const handleRedo = useCallback(async () => {
     if (!canRedo || !client || !sessionLookup) {
@@ -159,6 +185,12 @@ export const RevertControls = memo(function RevertControls({ sessionKey }: Rever
 
     setIsUpdating(true)
     try {
+      // Abort first if session is busy (shouldn't normally happen for redo, but be safe)
+      const isIdle = await ensureIdle()
+      if (!isIdle) {
+        return
+      }
+
       await client.session.unrevert(
         { sessionID: sessionLookup.sessionId, directory: sessionLookup.directory },
         { throwOnError: true },
@@ -166,7 +198,7 @@ export const RevertControls = memo(function RevertControls({ sessionKey }: Rever
     } finally {
       setIsUpdating(false)
     }
-  }, [canRedo, client, sessionLookup])
+  }, [canRedo, client, sessionLookup, ensureIdle])
 
   return (
     <div className="flex items-center gap-1">
