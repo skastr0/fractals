@@ -13,6 +13,7 @@ import {
   useRef,
 } from 'react'
 import type { Event, GlobalEvent, Message, Part, Session, SessionStatus } from '@/lib/opencode'
+import { getSessionErrorSignature } from '@/lib/opencode/errors'
 import { buildSessionKey, parseSessionKey } from '@/lib/utils/session-key'
 import { useOpenCode } from './OpenCodeProvider'
 import { useProject } from './ProjectProvider'
@@ -119,6 +120,8 @@ export interface SyncState {
     todos: Record<string, Todo[]>
     sessionDiffs: Record<string, FileDiff[]>
     sessionErrors: Record<string, { name: string; data: Record<string, unknown> }>
+    /** Tracks which error signatures have been dismissed per session */
+    dismissedErrors: Record<string, string>
     needsHydration: Record<string, boolean>
   }
   isConnected: boolean
@@ -253,6 +256,12 @@ export interface SyncContextValue {
 
   /** List all sessions without subscribing (peek) */
   listSessions: () => Session[]
+
+  /** Dismiss a session error (hides the banner until a new error arrives) */
+  dismissSessionError: (sessionKey: string) => void
+
+  /** Check if the current error for a session has been dismissed */
+  isSessionErrorDismissed: (sessionKey: string) => boolean
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null)
@@ -293,6 +302,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       todos: {},
       sessionDiffs: {},
       sessionErrors: {},
+      dismissedErrors: {},
       needsHydration: {},
     },
     isConnected: false,
@@ -379,6 +389,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       state$.data.todos.set({})
       state$.data.sessionDiffs.set({})
       state$.data.sessionErrors.set({})
+      state$.data.dismissedErrors.set({})
       state$.data.needsHydration.set({})
       state$.lastEvent.set(null)
       state$.isConnected.set(false)
@@ -442,6 +453,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
               state$.data.sessionErrors,
               sessionKey,
             ).delete()
+            key$<string>(state$.data.dismissedErrors, sessionKey).delete()
             key$<boolean>(state$.data.needsHydration, sessionKey).delete()
           })
 
@@ -822,6 +834,43 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Stable method - list all sessions without subscribing
   const listSessions = useCallback(() => Object.values(state$.data.sessions.peek() ?? {}), [state$])
 
+  // Stable method - dismiss a session error
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key$ is a pure utility function
+  const dismissSessionError = useCallback(
+    (sessionKey: string) => {
+      const error = key$<{ name: string; data: Record<string, unknown> }>(
+        state$.data.sessionErrors,
+        sessionKey,
+      ).peek()
+      if (!error) {
+        return
+      }
+      const signature = getSessionErrorSignature(error)
+      if (signature) {
+        key$<string>(state$.data.dismissedErrors, sessionKey).set(signature)
+      }
+    },
+    [state$],
+  )
+
+  // Stable method - check if current error is dismissed
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key$ is a pure utility function
+  const isSessionErrorDismissed = useCallback(
+    (sessionKey: string): boolean => {
+      const error = key$<{ name: string; data: Record<string, unknown> }>(
+        state$.data.sessionErrors,
+        sessionKey,
+      ).peek()
+      if (!error) {
+        return false
+      }
+      const signature = getSessionErrorSignature(error)
+      const dismissedSignature = key$<string>(state$.data.dismissedErrors, sessionKey).peek()
+      return signature === dismissedSignature
+    },
+    [state$],
+  )
+
   // ==========================================================================
   // CRITICAL: Context value is created ONCE and NEVER changes
   // Components subscribe directly to state$ for reactivity
@@ -834,9 +883,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setSessionActive,
       getSession,
       listSessions,
+      dismissSessionError,
+      isSessionErrorDismissed,
     }),
     // These are stable refs - state$ from useObservable, callbacks from useCallback
-    [state$, syncSession, syncSessionDiffs, setSessionActive, getSession, listSessions],
+    [
+      state$,
+      syncSession,
+      syncSessionDiffs,
+      setSessionActive,
+      getSession,
+      listSessions,
+      dismissSessionError,
+      isSessionErrorDismissed,
+    ],
   )
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>
