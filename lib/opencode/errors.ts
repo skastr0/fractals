@@ -141,3 +141,180 @@ export function wrapSdkError(error: unknown): OpenCodeError {
 
   return new OpenCodeError(message, 'UNKNOWN', error)
 }
+
+// =============================================================================
+// Session Error Classification
+// These types and helpers classify OpenCode SDK session errors for UI display
+// =============================================================================
+
+/**
+ * Session error from OpenCode SDK (from session.error SSE event)
+ * Matches the error field on AssistantMessage and EventSessionError
+ */
+export interface SessionError {
+  name: string
+  data: Record<string, unknown>
+}
+
+/**
+ * Known session error types from OpenCode SDK
+ */
+export type SessionErrorName =
+  | 'ProviderAuthError'
+  | 'UnknownError'
+  | 'MessageOutputLengthError'
+  | 'MessageAbortedError'
+  | 'APIError'
+
+/**
+ * Classification of session errors for UI treatment
+ */
+export type SessionErrorClassification =
+  | 'hidden' // Don't show (MessageAbortedError, retryable APIError)
+  | 'critical' // Cannot dismiss (ProviderAuthError)
+  | 'dismissable' // User can dismiss (UnknownError, MessageOutputLengthError, non-retryable APIError)
+
+/**
+ * Result of classifying a session error
+ */
+export interface ClassifiedSessionError {
+  error: SessionError
+  classification: SessionErrorClassification
+  message: string
+  hint?: string
+}
+
+/**
+ * Check if an APIError is retryable
+ */
+function isRetryableApiError(error: SessionError): boolean {
+  if (error.name !== 'APIError') {
+    return false
+  }
+  const data = error.data as { isRetryable?: boolean }
+  return data.isRetryable === true
+}
+
+/**
+ * Extract the user-facing message from a session error
+ */
+function getSessionErrorMessage(error: SessionError): string {
+  const data = error.data as { message?: string; providerID?: string }
+
+  if (data.message) {
+    return data.message
+  }
+
+  switch (error.name) {
+    case 'ProviderAuthError':
+      return data.providerID
+        ? `Authentication failed for ${data.providerID}`
+        : 'Authentication failed'
+    case 'MessageOutputLengthError':
+      return 'Response was too long and was truncated'
+    case 'MessageAbortedError':
+      return 'Message was cancelled'
+    case 'APIError':
+      return 'An API error occurred'
+    default:
+      return 'An error occurred'
+  }
+}
+
+/**
+ * Get a hint for recovering from the error
+ */
+function getSessionErrorHint(error: SessionError): string | undefined {
+  switch (error.name) {
+    case 'ProviderAuthError':
+      return 'Check your API key or re-authenticate with the provider'
+    case 'MessageOutputLengthError':
+      return 'Try breaking your request into smaller parts'
+    case 'APIError': {
+      const data = error.data as { isRetryable?: boolean }
+      if (data.isRetryable) {
+        return 'The request will be retried automatically'
+      }
+      return 'You may need to try again later'
+    }
+    default:
+      return undefined
+  }
+}
+
+/**
+ * Classify a session error for UI treatment
+ *
+ * - MessageAbortedError: hidden (just an interruption)
+ * - Retryable APIError: hidden (auto-retry handles it via session.status=retry)
+ * - ProviderAuthError: critical (cannot dismiss, needs user action)
+ * - Others: dismissable (user can hide the banner)
+ */
+export function classifySessionError(
+  error: SessionError | null | undefined,
+): ClassifiedSessionError | null {
+  if (!error) {
+    return null
+  }
+
+  // MessageAbortedError is just an interruption, not an error to display
+  if (error.name === 'MessageAbortedError') {
+    return null
+  }
+
+  // Retryable API errors are handled by automatic retry (session.status=retry)
+  if (isRetryableApiError(error)) {
+    return null
+  }
+
+  const message = getSessionErrorMessage(error)
+  const hint = getSessionErrorHint(error)
+
+  // ProviderAuthError requires user action - cannot be dismissed
+  if (error.name === 'ProviderAuthError') {
+    return {
+      error,
+      classification: 'critical',
+      message,
+      hint,
+    }
+  }
+
+  // All other errors can be dismissed
+  return {
+    error,
+    classification: 'dismissable',
+    message,
+    hint,
+  }
+}
+
+/**
+ * Check if a session error should be shown in the UI
+ */
+export function shouldShowSessionError(error: SessionError | null | undefined): boolean {
+  return classifySessionError(error) !== null
+}
+
+/**
+ * Check if a session error can be dismissed by the user
+ */
+export function canDismissSessionError(error: SessionError | null | undefined): boolean {
+  const classified = classifySessionError(error)
+  return classified !== null && classified.classification === 'dismissable'
+}
+
+/**
+ * Generate a stable signature for an error (for tracking dismissals)
+ */
+export function getSessionErrorSignature(error: SessionError | null | undefined): string | null {
+  if (!error) {
+    return null
+  }
+  // Use error name + stringified data for a stable signature
+  try {
+    return `${error.name}:${JSON.stringify(error.data)}`
+  } catch {
+    return error.name
+  }
+}
