@@ -2,7 +2,7 @@
 
 import { use$ } from '@legendapp/state/react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { AlertTriangle, Coins, Gauge, GitBranch, Minus, Plus, RefreshCw, Zap } from 'lucide-react'
+import { AlertTriangle, Coins, Gauge, Minus, Plus, RefreshCw, Zap } from 'lucide-react'
 import { memo, useCallback, useMemo } from 'react'
 import { tv } from 'tailwind-variants'
 
@@ -353,17 +353,8 @@ export const SessionNode = memo(function SessionNode({
             )}
           </div>
           {projectLabel ? (
-            <div
-              className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground"
-              title={projectLabel}
-            >
-              {data.isWorktree && (
-                <span className="inline-flex items-center gap-0.5 rounded bg-cyan-500/15 px-1 py-0.5 text-[9px] font-medium text-cyan-400">
-                  <GitBranch className="h-2.5 w-2.5" />
-                  wt
-                </span>
-              )}
-              <span className="truncate">{projectLabel}</span>
+            <div className="mt-1 truncate text-[11px] text-muted-foreground" title={projectLabel}>
+              {projectLabel}
             </div>
           ) : null}
           <div className="mt-1.5 line-clamp-2 text-[11px] text-muted-foreground/80" title={preview}>

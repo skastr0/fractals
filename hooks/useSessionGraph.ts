@@ -239,8 +239,6 @@ const areSessionNodeDataEqual = (a: SessionNodeData, b: SessionNodeData): boolea
     a.sessionKey === b.sessionKey &&
     a.title === b.title &&
     a.projectLabel === b.projectLabel &&
-    a.isWorktree === b.isWorktree &&
-    a.worktreeName === b.worktreeName &&
     a.status === b.status &&
     a.depth === b.depth &&
     a.isSubagent === b.isSubagent &&
@@ -581,8 +579,6 @@ export function useSessionGraph() {
         isMostRecent,
         isStale,
         projectLabel: projectLabelInfo.label,
-        isWorktree: projectLabelInfo.isWorktree,
-        worktreeName: projectLabelInfo.worktreeName,
       }
 
       const cached = nodeDataCache.get(node.id)
