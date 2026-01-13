@@ -3,13 +3,7 @@
 import { use$, useObservable } from '@legendapp/state/react'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo } from 'react'
 import type { Project } from '@/lib/opencode'
-import {
-  filterJunkWorktrees,
-  getAllWorktrees,
-  getSelectedDirectories,
-  isJunkWorktree,
-  type WorktreeItem,
-} from '@/lib/utils/worktree'
+import { getSelectedDirectories, isJunkWorktree } from '@/lib/utils/worktree'
 import { useOpenCode } from './OpenCodeProvider'
 
 const LAST_PROJECT_KEY = 'opencode-last-project'
@@ -71,8 +65,6 @@ export interface ProjectContextValue {
   projects: Project[]
   currentProject: Project | null
   selectedProjectIds: string[]
-  /** All worktrees (main + sandboxes) from all projects */
-  worktrees: WorktreeItem[]
   /** Directories included in the current selection (includes sandboxes) */
   selectedDirectories: Set<string> | null
   isLoading: boolean
@@ -163,9 +155,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const selectedProjectIds = use$(() => state$.selectedProjectIds.get())
   const isLoading = use$(() => state$.isLoading.get())
 
-  // Derive all worktrees (main + sandboxes) from projects, filtered to remove junk
-  const worktrees = useMemo(() => filterJunkWorktrees(getAllWorktrees(projects)), [projects])
-
   // Derive the set of directories for the current selection (includes sandboxes)
   const selectedDirectories = useMemo(() => {
     if (selectedProjectIds.length === 0) {
@@ -205,7 +194,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     projects,
     currentProject,
     selectedProjectIds,
-    worktrees,
     selectedDirectories,
     isLoading,
     selectProject,
