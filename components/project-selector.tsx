@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, ChevronRight, Folder, FolderOpen, GitBranch, Search } from 'lucide-react'
+import { Check, Folder, FolderOpen, Search } from 'lucide-react'
 import {
   type ChangeEvent,
   type KeyboardEvent,
@@ -16,8 +16,7 @@ import { Dialog, DialogBody, DialogContent, DialogFooter } from '@/components/ui
 import { Input } from '@/components/ui/input'
 import { useOpenCode } from '@/context/OpenCodeProvider'
 import { useProject } from '@/context/ProjectProvider'
-import type { Project } from '@/lib/opencode'
-import { cn, formatProjectLabel, type WorktreeItem } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 const normalizeSearchValue = (value: string): string => value.toLowerCase().replace(/\s+/g, '')
 
@@ -35,17 +34,30 @@ const fuzzyMatch = (query: string, text: string): boolean => {
   return true
 }
 
-interface ProjectGroup {
-  project: Project
-  mainWorktree: WorktreeItem
-  sandboxWorktrees: WorktreeItem[]
+/** A flat directory entry - no hierarchy */
+interface DirectoryEntry {
+  /** Unique ID for selection (path-based) */
+  id: string
+  /** The directory path */
+  path: string
+  /** Display name (folder name) */
+  name: string
+  /** Shortened path for display */
+  displayPath: string
 }
+
+const getDirectoryName = (path: string): string => {
+  const parts = path.split(/[/\\]/)
+  return parts[parts.length - 1] || path
+}
+
+const formatDisplayPath = (path: string): string =>
+  path.replace(/^\/Users\/[^/]+/, '~').replace(/^C:\\Users\\[^\\]+/i, '~')
 
 export function ProjectSelector() {
   const { client } = useOpenCode()
   const {
     projects,
-    worktrees,
     selectedProjectIds,
     isLoading,
     selectProject,
@@ -60,7 +72,6 @@ export function ProjectSelector() {
   const [addError, setAddError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [isOpen, setIsOpen] = useState(false)
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const inputRef = useRef<HTMLInputElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -95,88 +106,81 @@ export function ProjectSelector() {
     return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true })
   }, [closeDropdown])
 
-  // Group worktrees by project
-  const projectGroups = useMemo<ProjectGroup[]>(() => {
-    const groups: ProjectGroup[] = []
-    const worktreesByProject = new Map<string, WorktreeItem[]>()
-
-    for (const wt of worktrees) {
-      const list = worktreesByProject.get(wt.projectId) ?? []
-      list.push(wt)
-      worktreesByProject.set(wt.projectId, list)
-    }
+  // Build flat list of ALL directories from all projects
+  const allDirectories = useMemo<DirectoryEntry[]>(() => {
+    const seen = new Set<string>()
+    const entries: DirectoryEntry[] = []
 
     for (const project of projects) {
-      const projectWorktrees = worktreesByProject.get(project.id) ?? []
-      const mainWorktree = projectWorktrees.find((wt) => !wt.isWorktree)
-      if (!mainWorktree) continue // Skip if no main worktree (shouldn't happen)
+      // Add main worktree
+      if (project.worktree && !seen.has(project.worktree)) {
+        seen.add(project.worktree)
+        entries.push({
+          id: project.worktree,
+          path: project.worktree,
+          name: project.name || getDirectoryName(project.worktree),
+          displayPath: formatDisplayPath(project.worktree),
+        })
+      }
 
-      groups.push({
-        project,
-        mainWorktree,
-        sandboxWorktrees: projectWorktrees.filter((wt) => wt.isWorktree),
-      })
+      // Add all sandboxes
+      if (project.sandboxes?.length) {
+        for (const sandbox of project.sandboxes) {
+          if (!seen.has(sandbox)) {
+            seen.add(sandbox)
+            entries.push({
+              id: sandbox,
+              path: sandbox,
+              name: getDirectoryName(sandbox),
+              displayPath: formatDisplayPath(sandbox),
+            })
+          }
+        }
+      }
     }
 
-    return groups
-  }, [projects, worktrees])
+    // Sort alphabetically by name
+    return entries.sort((a, b) => a.name.localeCompare(b.name))
+  }, [projects])
 
-  // Filter groups based on search
-  const filteredGroups = useMemo<ProjectGroup[]>(() => {
+  // Filter by search
+  const filteredDirectories = useMemo(() => {
     const query = searchTerm.trim()
-    if (!query) return projectGroups
+    if (!query) return allDirectories
 
-    return projectGroups
-      .map((group) => {
-        const projectMatches =
-          fuzzyMatch(query, group.mainWorktree.name) || fuzzyMatch(query, group.mainWorktree.path)
-
-        if (projectMatches) return group
-
-        const matchingSandboxes = group.sandboxWorktrees.filter(
-          (wt) => fuzzyMatch(query, wt.name) || fuzzyMatch(query, wt.path),
-        )
-
-        if (matchingSandboxes.length === 0) return null
-
-        return { ...group, sandboxWorktrees: matchingSandboxes }
-      })
-      .filter((g): g is ProjectGroup => g !== null)
-  }, [projectGroups, searchTerm])
+    return allDirectories.filter(
+      (dir) => fuzzyMatch(query, dir.name) || fuzzyMatch(query, dir.path),
+    )
+  }, [allDirectories, searchTerm])
 
   const placeholder = isLoading
     ? 'Loading...'
     : isOpen
-      ? 'Search projects & worktrees...'
-      : 'Filter projects'
+      ? 'Search directories...'
+      : 'Filter by directory'
 
   // Build selection label
   const selectionLabel = useMemo(() => {
-    if (selectedProjectIds.length === 0) return 'All projects'
+    if (selectedProjectIds.length === 0) return 'All directories'
     if (selectedProjectIds.length === 1) {
       const id = selectedProjectIds[0]
-      // Check if it's a worktree path
-      const wt = worktrees.find((w) => w.id === id)
-      if (wt) return wt.name
-      // Check if it's a project
-      const project = projects.find((p) => p.id === id)
-      if (project) return formatProjectLabel(project).name
+      const dir = allDirectories.find((d) => d.id === id)
+      if (dir) return dir.name
       return '1 selected'
     }
     return `${selectedProjectIds.length} selected`
-  }, [selectedProjectIds, worktrees, projects])
+  }, [selectedProjectIds, allDirectories])
 
   const displayValue = isOpen ? searchTerm : selectionLabel
   const isAllSelected = selectedProjectIds.length === 0
 
-  const handleSelectProject = (project: Project) => {
-    toggleSelectedProject(project.id)
-    void selectProject(project.id)
-  }
-
-  const handleSelectWorktree = (wt: WorktreeItem) => {
-    // For worktrees, we use the worktree ID which includes the path
-    toggleSelectedProject(wt.id)
+  const handleSelectDirectory = (dir: DirectoryEntry) => {
+    toggleSelectedProject(dir.id)
+    // Also set as current project if it matches a project
+    const project = projects.find((p) => p.worktree === dir.path)
+    if (project) {
+      void selectProject(project.id)
+    }
   }
 
   const handleClearAll = () => {
@@ -195,18 +199,6 @@ export function ProjectSelector() {
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') closeDropdown()
-  }
-
-  const toggleExpanded = (projectId: string) => {
-    setExpandedProjects((prev) => {
-      const next = new Set(prev)
-      if (next.has(projectId)) {
-        next.delete(projectId)
-      } else {
-        next.add(projectId)
-      }
-      return next
-    })
   }
 
   const handleAddProject = async () => {
@@ -250,8 +242,7 @@ export function ProjectSelector() {
     event.target.value = ''
   }
 
-  const isProjectSelected = (projectId: string) => selectedProjectIds.includes(projectId)
-  const isWorktreeSelected = (wtId: string) => selectedProjectIds.includes(wtId)
+  const isDirectorySelected = (id: string) => selectedProjectIds.includes(id)
 
   return (
     <div className="flex items-center gap-2">
@@ -261,9 +252,9 @@ export function ProjectSelector() {
           ref={inputRef}
           type="text"
           role="combobox"
-          aria-label="Project filter"
+          aria-label="Directory filter"
           aria-expanded={isOpen}
-          aria-controls="project-selector-listbox"
+          aria-controls="directory-selector-listbox"
           aria-autocomplete="list"
           value={displayValue}
           onChange={handleInputChange}
@@ -276,12 +267,12 @@ export function ProjectSelector() {
 
         {isOpen && (
           <div
-            id="project-selector-listbox"
+            id="directory-selector-listbox"
             role="listbox"
             aria-multiselectable="true"
             className="absolute top-full z-50 mt-1 max-h-[400px] w-full overflow-auto rounded-lg border border-border bg-background shadow-lg"
           >
-            {/* All Projects option */}
+            {/* All option */}
             <button
               type="button"
               role="option"
@@ -292,7 +283,7 @@ export function ProjectSelector() {
                 isAllSelected && 'bg-primary/10',
               )}
             >
-              <span className="text-sm font-medium text-foreground">All projects</span>
+              <span className="text-sm font-medium text-foreground">All directories</span>
               <Check
                 className={cn(
                   'ml-auto h-4 w-4 text-primary transition-opacity',
@@ -303,125 +294,45 @@ export function ProjectSelector() {
 
             <div className="mx-2 my-1 border-t border-border/50" />
 
-            {/* Project groups */}
-            {filteredGroups.length > 0 ? (
+            {/* Flat directory list */}
+            {filteredDirectories.length > 0 ? (
               <div className="py-1">
-                {filteredGroups.map((group) => {
-                  const { project, mainWorktree, sandboxWorktrees } = group
-                  const hasWorktrees = sandboxWorktrees.length > 0
-                  const isExpanded =
-                    expandedProjects.has(project.id) || searchTerm.trim().length > 0
-                  const projectSelected = isProjectSelected(project.id)
-
+                {filteredDirectories.map((dir) => {
+                  const isSelected = isDirectorySelected(dir.id)
                   return (
-                    <div key={project.id}>
-                      {/* Project row */}
-                      <div className="flex items-center gap-1 px-2">
-                        {/* Expand button */}
-                        {hasWorktrees ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpanded(project.id)}
-                            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded hover:bg-secondary/50"
-                            aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                          >
-                            <ChevronRight
-                              className={cn(
-                                'h-3.5 w-3.5 text-muted-foreground transition-transform',
-                                isExpanded && 'rotate-90',
-                              )}
-                            />
-                          </button>
-                        ) : (
-                          <div className="w-6 flex-shrink-0" />
-                        )}
-
-                        {/* Project select button */}
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={projectSelected}
-                          onClick={() => handleSelectProject(project)}
-                          className={cn(
-                            'flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-secondary/50',
-                            projectSelected && 'bg-primary/10',
-                          )}
-                        >
-                          {project.icon?.url ? (
-                            <span
-                              className="h-4 w-4 flex-shrink-0 rounded bg-cover bg-center"
-                              style={{ backgroundImage: `url(${project.icon.url})` }}
-                            />
-                          ) : (
-                            <FolderOpen className="h-4 w-4 flex-shrink-0 text-amber-500/80" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-medium text-foreground">
-                                {mainWorktree.name}
-                              </span>
-                              {hasWorktrees && (
-                                <span className="flex items-center gap-0.5 rounded bg-secondary/80 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                  <GitBranch className="h-2.5 w-2.5" />
-                                  {sandboxWorktrees.length}
-                                </span>
-                              )}
-                            </div>
-                            <div className="truncate text-xs text-muted-foreground">
-                              {mainWorktree.displayPath}
-                            </div>
-                          </div>
-                          <Check
-                            className={cn(
-                              'h-4 w-4 flex-shrink-0 text-primary transition-opacity',
-                              projectSelected ? 'opacity-100' : 'opacity-0',
-                            )}
-                          />
-                        </button>
-                      </div>
-
-                      {/* Worktrees */}
-                      {isExpanded && hasWorktrees && (
-                        <div className="ml-8 border-l border-border/40 py-0.5 pl-2">
-                          {sandboxWorktrees.map((wt) => {
-                            const wtSelected = isWorktreeSelected(wt.id)
-                            return (
-                              <button
-                                key={wt.id}
-                                type="button"
-                                role="option"
-                                aria-selected={wtSelected}
-                                onClick={() => handleSelectWorktree(wt)}
-                                className={cn(
-                                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-secondary/50',
-                                  wtSelected && 'bg-primary/10',
-                                )}
-                              >
-                                <GitBranch className="h-3.5 w-3.5 flex-shrink-0 text-cyan-500/70" />
-                                <div className="min-w-0 flex-1">
-                                  <div className="truncate text-sm text-foreground">{wt.name}</div>
-                                  <div className="truncate text-[10px] text-muted-foreground/70">
-                                    {wt.displayPath}
-                                  </div>
-                                </div>
-                                <Check
-                                  className={cn(
-                                    'h-4 w-4 flex-shrink-0 text-primary transition-opacity',
-                                    wtSelected ? 'opacity-100' : 'opacity-0',
-                                  )}
-                                />
-                              </button>
-                            )
-                          })}
-                        </div>
+                    <button
+                      key={dir.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => handleSelectDirectory(dir)}
+                      className={cn(
+                        'flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-secondary/50',
+                        isSelected && 'bg-primary/10',
                       )}
-                    </div>
+                    >
+                      <FolderOpen className="h-4 w-4 flex-shrink-0 text-amber-500/80" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {dir.name}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {dir.displayPath}
+                        </div>
+                      </div>
+                      <Check
+                        className={cn(
+                          'h-4 w-4 flex-shrink-0 text-primary transition-opacity',
+                          isSelected ? 'opacity-100' : 'opacity-0',
+                        )}
+                      />
+                    </button>
                   )
                 })}
               </div>
             ) : searchTerm.trim() ? (
               <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                No projects or worktrees found.
+                No directories found.
               </div>
             ) : null}
           </div>
