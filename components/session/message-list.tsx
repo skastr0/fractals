@@ -1,7 +1,7 @@
 'use client'
 
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useSync } from '@/context/SyncProvider'
 import { usePartsForMessages } from '@/hooks/useParts'
@@ -16,6 +16,9 @@ import { ScrollToBottom } from './scroll-to-bottom'
 interface MessageListProps {
   sessionKey: string
 }
+
+// Number of recent messages to render immediately for instant pane opening
+const INITIAL_MESSAGE_COUNT = 10
 
 export const MessageList = memo(function MessageList({ sessionKey }: MessageListProps) {
   const { messages } = useSession(sessionKey)
@@ -110,10 +113,47 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
     [messages],
   )
 
+  // Progressive loading: start with recent messages, load older ones async
+  // This ensures instant pane opening while older content loads in background
+  const [isFullyLoaded, setIsFullyLoaded] = useState(false)
+  const [loadedMessageCount, setLoadedMessageCount] = useState(INITIAL_MESSAGE_COUNT)
+
+  // Reset loading state when session changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionKey change resets loading state
+  useEffect(() => {
+    setIsFullyLoaded(false)
+    setLoadedMessageCount(INITIAL_MESSAGE_COUNT)
+  }, [sessionKey])
+
+  // Progressively load more messages after initial render
+  useEffect(() => {
+    if (isFullyLoaded || sortedMessages.length <= loadedMessageCount) {
+      if (!isFullyLoaded && sortedMessages.length <= loadedMessageCount) {
+        setIsFullyLoaded(true)
+      }
+      return
+    }
+
+    // Use startTransition to load older messages without blocking UI
+    startTransition(() => {
+      setLoadedMessageCount(sortedMessages.length)
+      setIsFullyLoaded(true)
+    })
+  }, [sortedMessages.length, loadedMessageCount, isFullyLoaded])
+
+  // Get messages to render: recent first, then all after loading
+  const messagesToRender = useMemo(() => {
+    if (isFullyLoaded || sortedMessages.length <= INITIAL_MESSAGE_COUNT) {
+      return sortedMessages
+    }
+    // Show only the last N messages initially for instant render
+    return sortedMessages.slice(-loadedMessageCount)
+  }, [sortedMessages, loadedMessageCount, isFullyLoaded])
+
   // Flatten messages to individual items for per-item virtualization
   const flatItems = useMemo(() => {
-    return flattenMessages({ messages: sortedMessages, getParts, cache: flatItemCache.current })
-  }, [sortedMessages, getParts])
+    return flattenMessages({ messages: messagesToRender, getParts, cache: flatItemCache.current })
+  }, [messagesToRender, getParts])
 
   // Track items that are currently streaming (so they stay expanded after completion)
   useEffect(() => {
@@ -202,7 +242,9 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
       measurementCache.current.set(indexKey, height)
       return height
     },
-    overscan: 5,
+    // Aggressive overscan: render 20 items above/below viewport
+    // This prevents blank screens during fast scrolling
+    overscan: 20,
   })
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -304,6 +346,9 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
     )
   }
 
+  // Check if there are older messages still loading
+  const hasOlderMessages = !isFullyLoaded && sortedMessages.length > INITIAL_MESSAGE_COUNT
+
   return (
     <div className="relative flex h-full max-h-full min-h-0 flex-col overflow-hidden">
       {/* Virtualized scroll container */}
@@ -321,6 +366,14 @@ export const MessageList = memo(function MessageList({ sessionKey }: MessageList
             position: 'relative',
           }}
         >
+          {/* Loading indicator for older messages */}
+          {hasOlderMessages && (
+            <div className="sticky top-0 z-10 flex items-center justify-center py-2 text-xs text-muted-foreground">
+              <span className="rounded-full bg-background/80 px-3 py-1 backdrop-blur-sm">
+                Loading older messages...
+              </span>
+            </div>
+          )}
           {/* Positioned container for visible items */}
           <div
             style={{
