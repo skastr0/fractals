@@ -2,7 +2,7 @@
 
 import { parsePatchFiles } from '@pierre/diffs'
 import { FileDiff, PatchDiff } from '@pierre/diffs/react'
-import { type CSSProperties, memo, useMemo } from 'react'
+import { Component, type CSSProperties, memo, type ReactNode, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
 interface PierreDiffViewProps {
@@ -10,6 +10,36 @@ interface PierreDiffViewProps {
   className?: string
   /** Layout mode: 'unified' (stacked) or 'split' (side-by-side) */
   diffStyle?: 'unified' | 'split'
+}
+
+/**
+ * Error boundary to catch rendering errors from @pierre/diffs
+ * Falls back to showing the raw diff text
+ */
+class DiffErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error) {
+    // Log but don't crash - this is expected for malformed diffs
+    console.debug('Diff rendering failed, falling back to raw text:', error.message)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback
+    }
+    return this.props.children
+  }
 }
 
 /**
@@ -63,6 +93,11 @@ export const PierreDiffView = memo(function PierreDiffView({
     )
   }
 
+  // Fallback content for when diff parsing/rendering fails
+  const fallbackContent = (
+    <pre className="whitespace-pre-wrap break-words p-3 text-xs text-muted-foreground">{diff}</pre>
+  )
+
   return (
     <div
       className={cn(
@@ -71,40 +106,40 @@ export const PierreDiffView = memo(function PierreDiffView({
         className,
       )}
     >
-      {fileDiffs.length === 0 ? (
-        <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words p-3 text-xs text-muted-foreground">
-          {diff}
-        </pre>
-      ) : isSinglePatch ? (
-        <PatchDiff
-          patch={diff}
-          className="diff-view"
-          style={diffStyleOverrides}
-          options={options}
-        />
-      ) : (
-        <div className="divide-y divide-border/60">
-          {fileDiffs.map((fileDiff, index) => (
-            <div key={`${fileDiff.name}-${index}`} className="py-2">
-              <div className="px-3 pb-2 text-[11px] font-mono text-muted-foreground">
-                {fileDiff.prevName && fileDiff.prevName !== fileDiff.name ? (
-                  <span>
-                    {fileDiff.prevName} → {fileDiff.name}
-                  </span>
-                ) : (
-                  <span>{fileDiff.name}</span>
-                )}
+      <DiffErrorBoundary fallback={fallbackContent}>
+        {fileDiffs.length === 0 ? (
+          fallbackContent
+        ) : isSinglePatch ? (
+          <PatchDiff
+            patch={diff}
+            className="diff-view"
+            style={diffStyleOverrides}
+            options={options}
+          />
+        ) : (
+          <div className="divide-y divide-border/60">
+            {fileDiffs.map((fileDiff, index) => (
+              <div key={`${fileDiff.name}-${index}`} className="py-2">
+                <div className="px-3 pb-2 text-[11px] font-mono text-muted-foreground">
+                  {fileDiff.prevName && fileDiff.prevName !== fileDiff.name ? (
+                    <span>
+                      {fileDiff.prevName} → {fileDiff.name}
+                    </span>
+                  ) : (
+                    <span>{fileDiff.name}</span>
+                  )}
+                </div>
+                <FileDiff
+                  fileDiff={fileDiff}
+                  className="diff-view"
+                  style={diffStyleOverrides}
+                  options={options}
+                />
               </div>
-              <FileDiff
-                fileDiff={fileDiff}
-                className="diff-view"
-                style={diffStyleOverrides}
-                options={options}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </DiffErrorBoundary>
     </div>
   )
 })

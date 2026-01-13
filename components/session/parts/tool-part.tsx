@@ -2,6 +2,7 @@
 
 import {
   BookOpen,
+  Expand,
   FileEdit,
   FilePlus,
   FolderOpen,
@@ -11,10 +12,20 @@ import {
   Loader2,
   Search,
   Terminal,
+  X,
 } from 'lucide-react'
-import { memo } from 'react'
+import { memo, useState } from 'react'
+import {
+  Dialog as AriaDialog,
+  DialogTrigger as AriaDialogTrigger,
+  Heading,
+  Modal,
+  ModalOverlay,
+} from 'react-aria-components'
 
+import { Button } from '@/components/ui/button'
 import { Markdown } from '@/components/ui/markdown'
+import { PierreDiffView } from '@/components/ui/pierre-diff-view'
 import type { ToolPart } from '@/lib/opencode'
 import { cn } from '@/lib/utils'
 
@@ -170,7 +181,7 @@ function BashTool({ part }: { part: ToolPart }) {
       <div className="font-mono text-xs">
         <span className="text-muted-foreground">$</span> {input.command}
       </div>
-      <pre className="max-h-96 max-w-full overflow-auto break-words rounded bg-muted/30 p-2 font-mono text-xs text-foreground">
+      <pre className="max-w-full whitespace-pre-wrap break-words rounded bg-muted/30 p-2 font-mono text-xs text-foreground">
         {output.trim()}
       </pre>
     </ToolContent>
@@ -204,31 +215,15 @@ function EditTool({ part }: { part: ToolPart }) {
   return (
     <ToolContent>
       {diff ? (
-        <pre className="max-h-96 max-w-full overflow-auto break-words rounded bg-muted/30 p-2 font-mono text-xs">
-          {diff.split('\n').map((line, lineIndex) => {
-            let className = 'text-foreground'
-            if (line.startsWith('+') && !line.startsWith('+++')) {
-              className = 'text-green-500 bg-green-500/10'
-            } else if (line.startsWith('-') && !line.startsWith('---')) {
-              className = 'text-red-500 bg-red-500/10'
-            } else if (line.startsWith('@@')) {
-              className = 'text-blue-500'
-            }
-            return (
-              <div key={`diff-${lineIndex}-${line.slice(0, 20)}`} className={className}>
-                {line}
-              </div>
-            )
-          })}
-        </pre>
+        <PierreDiffView diff={diff} />
       ) : (
         <>
           <div className="text-xs text-muted-foreground">oldString:</div>
-          <pre className="max-w-full overflow-auto break-words rounded bg-red-500/10 p-2 font-mono text-xs text-red-500">
+          <pre className="max-w-full whitespace-pre-wrap break-words rounded bg-red-500/10 p-2 font-mono text-xs text-red-500">
             {input.oldString}
           </pre>
           <div className="text-xs text-muted-foreground">newString:</div>
-          <pre className="max-w-full overflow-auto break-words rounded bg-green-500/10 p-2 font-mono text-xs text-green-500">
+          <pre className="max-w-full whitespace-pre-wrap break-words rounded bg-green-500/10 p-2 font-mono text-xs text-green-500">
             {input.newString}
           </pre>
         </>
@@ -251,29 +246,58 @@ function EditTool({ part }: { part: ToolPart }) {
   )
 }
 
-// Write tool renderer
+// Write tool renderer - shows diff (all additions for new files)
 function WriteTool({ part }: { part: ToolPart }) {
   const input = part.state.input as { filePath?: string; content?: string }
   const metadata = getMetadata<EditMetadata>(part.state)
+  const filePath = normalizePath(input.filePath)
 
   // If not completed, show inline
   if (part.state.status !== 'completed') {
+    return <InlineTool part={part} icon={FilePlus} title="Write" subtitle={filePath} />
+  }
+
+  // If we have a diff from metadata, use it
+  if (metadata.diff) {
     return (
-      <InlineTool
-        part={part}
-        icon={FilePlus}
-        title="Write"
-        subtitle={normalizePath(input.filePath)}
-      />
+      <ToolContent>
+        <PierreDiffView diff={metadata.diff} />
+        {metadata.diagnostics && Object.keys(metadata.diagnostics).length > 0 ? (
+          <div className="space-y-1 text-xs text-error">
+            {Object.entries(metadata.diagnostics).flatMap(([file, diagnostics]) =>
+              diagnostics
+                .filter((d) => d.severity === 1)
+                .slice(0, 3)
+                .map((d, idx) => (
+                  <div
+                    key={`write-${file}-${d.range.start.line}-${d.range.start.character}-${idx}`}
+                  >
+                    Error [{d.range.start.line + 1}:{d.range.start.character + 1}] {d.message}
+                  </div>
+                )),
+            )}
+          </div>
+        ) : null}
+      </ToolContent>
     )
   }
 
-  // Show content directly
+  // Synthesize a diff showing all lines as additions (new file)
+  const content = input.content ?? ''
+  const lines = content.split('\n')
+  const lineCount = lines.length
+
+  // Create a synthetic unified diff
+  const syntheticDiff = [
+    `--- /dev/null`,
+    `+++ ${filePath}`,
+    `@@ -0,0 +1,${lineCount} @@`,
+    ...lines.map((line) => `+${line}`),
+  ].join('\n')
+
   return (
     <ToolContent>
-      <pre className="max-h-64 max-w-full overflow-auto break-words rounded bg-muted/30 p-2 font-mono text-xs">
-        {input.content}
-      </pre>
+      <PierreDiffView diff={syntheticDiff} />
       {metadata.diagnostics && Object.keys(metadata.diagnostics).length > 0 ? (
         <div className="space-y-1 text-xs text-error">
           {Object.entries(metadata.diagnostics).flatMap(([file, diagnostics]) =>
@@ -292,22 +316,105 @@ function WriteTool({ part }: { part: ToolPart }) {
   )
 }
 
-// Read tool renderer
+// Read tool renderer - shows fixed preview with spotlight for full content
 function ReadTool({ part }: { part: ToolPart }) {
+  const [isOpen, setIsOpen] = useState(false)
   const input = part.state.input as { filePath?: string; offset?: number; limit?: number }
+  const output = part.state.status === 'completed' ? part.state.output : null
+  const filePath = normalizePath(input.filePath)
 
-  const metadata: string[] = []
-  if (input.offset) metadata.push(`offset: ${input.offset}`)
-  if (input.limit) metadata.push(`limit: ${input.limit}`)
+  const metaItems: string[] = []
+  if (input.offset) metaItems.push(`offset: ${input.offset}`)
+  if (input.limit) metaItems.push(`limit: ${input.limit}`)
+
+  // Show inline if not completed
+  if (part.state.status !== 'completed' || !output) {
+    return (
+      <InlineTool
+        part={part}
+        icon={BookOpen}
+        title="Read"
+        subtitle={filePath}
+        metadata={metaItems.length > 0 ? metaItems.join(', ') : undefined}
+      />
+    )
+  }
+
+  // Get a preview (first ~10 lines)
+  const content = String(output)
+  const lines = content.split('\n')
+  const previewLines = lines.slice(0, 10)
+  const hasMore = lines.length > 10
+  const lineCount = lines.length
 
   return (
-    <InlineTool
-      part={part}
-      icon={BookOpen}
-      title="Read"
-      subtitle={normalizePath(input.filePath)}
-      metadata={metadata.length > 0 ? metadata.join(', ') : undefined}
-    />
+    <ToolContent>
+      {/* Fixed-height preview - no internal scroll */}
+      <pre className="whitespace-pre-wrap break-words font-mono text-xs text-foreground/80">
+        {previewLines.join('\n')}
+        {hasMore && (
+          <span className="text-muted-foreground">
+            {'\n'}... ({lineCount - 10} more lines)
+          </span>
+        )}
+      </pre>
+
+      {/* Spotlight button to view full content */}
+      {hasMore && (
+        <AriaDialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-1 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Expand className="h-3 w-3" />
+            View full file ({lineCount} lines)
+          </Button>
+
+          <ModalOverlay
+            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[entering]:animate-in data-[entering]:fade-in-0 data-[exiting]:animate-out data-[exiting]:fade-out-0"
+            isDismissable
+          >
+            <Modal className="fixed inset-4 z-50 flex flex-col overflow-hidden rounded-lg border border-border bg-background shadow-2xl data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 md:inset-8 lg:inset-12">
+              <AriaDialog className="flex h-full flex-col outline-none">
+                {({ close }) => (
+                  <>
+                    {/* Header */}
+                    <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <Heading
+                          slot="title"
+                          className="truncate font-mono text-sm font-medium text-foreground"
+                        >
+                          {filePath}
+                        </Heading>
+                        <p className="text-xs text-muted-foreground">{lineCount} lines</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="ml-2 flex-shrink-0"
+                        onPress={close}
+                        aria-label="Close"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Scrollable content area - scroll happens HERE in the modal, not in the pane */}
+                    <div className="min-h-0 flex-1 overflow-auto p-4">
+                      <pre className="whitespace-pre-wrap break-words font-mono text-xs text-foreground/80">
+                        {content}
+                      </pre>
+                    </div>
+                  </>
+                )}
+              </AriaDialog>
+            </Modal>
+          </ModalOverlay>
+        </AriaDialogTrigger>
+      )}
+    </ToolContent>
   )
 }
 
@@ -451,7 +558,7 @@ function GenericTool({ part }: { part: ToolPart }) {
     <ToolContent>
       <div>
         <div className="mb-1 text-xs font-medium text-muted-foreground">Input</div>
-        <pre className="max-h-64 max-w-full overflow-auto break-words rounded bg-muted/30 p-2 text-xs">
+        <pre className="max-w-full whitespace-pre-wrap break-words rounded bg-muted/30 p-2 text-xs">
           {inputText}
         </pre>
       </div>
