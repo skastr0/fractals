@@ -10,6 +10,7 @@ import {
 } from '@/components/panes/diff-pane'
 import { RevertControls } from '@/components/session/fork-controls'
 import { MessageList } from '@/components/session/message-list'
+import { SessionErrorBanner, SessionRetryBanner } from '@/components/session/session-error-banner'
 import { SessionInput } from '@/components/session/session-input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter } from '@/components/ui/dialog'
@@ -398,6 +399,11 @@ export function SessionPane({ sessionKey, autoFocus }: SessionPaneProps) {
 
   return (
     <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden">
+      {/* Error/Retry banners at the top */}
+      <div className="flex-shrink-0 space-y-2 p-3 pb-0">
+        <SessionErrorBanner sessionKey={sessionKey} />
+        <SessionRetryBanner sessionKey={sessionKey} />
+      </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         <MessageList sessionKey={sessionKey} />
       </div>

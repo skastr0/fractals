@@ -2,7 +2,7 @@
 
 import { use$ } from '@legendapp/state/react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { Coins, Gauge, GitBranch, Minus, Plus, Zap } from 'lucide-react'
+import { AlertTriangle, Coins, Gauge, GitBranch, Minus, Plus, RefreshCw, Zap } from 'lucide-react'
 import { memo, useCallback, useMemo } from 'react'
 import { tv } from 'tailwind-variants'
 
@@ -25,6 +25,7 @@ import type {
   Session,
   UserMessage,
 } from '@/lib/opencode'
+import { classifySessionError, type SessionError } from '@/lib/opencode/errors'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/utils/date'
 import type { FileDiff, SessionNodeData, SessionStatus } from '@/types'
@@ -205,6 +206,10 @@ const nodeVariants = tv({
       retry: 'border-yellow-500 ring-1 ring-yellow-500/30',
       pending_permission: 'border-red-500 ring-1 ring-red-500/30',
     },
+    hasError: {
+      true: 'border-red-500/60 ring-1 ring-red-500/20',
+      false: '',
+    },
     mostRecent: {
       true: [
         'border-cyan-400/80 ring-2 ring-cyan-400/40',
@@ -225,6 +230,7 @@ const nodeVariants = tv({
     status: 'idle',
     mostRecent: false,
     stale: false,
+    hasError: false,
   },
 })
 
@@ -244,6 +250,8 @@ export const SessionNode = memo(function SessionNode({
   const session = use$(state$.data.sessions[data.sessionKey]) as Session | undefined
   // Subscribe to session diffs for this session
   const sessionDiffs = use$(state$.data.sessionDiffs[data.sessionKey]) as FileDiff[] | undefined
+  // Subscribe to session errors for this session
+  const sessionError = use$(state$.data.sessionErrors[data.sessionKey]) as SessionError | undefined
   const summary = session?.summary
   // Get the last message ID to subscribe to its parts
   const lastMessageId = messages?.[messages.length - 1]?.id
@@ -267,6 +275,11 @@ export const SessionNode = memo(function SessionNode({
     return { additions: summary.additions ?? 0, deletions: summary.deletions ?? 0 }
   }, [sessionDiffs, summary])
   const hasDiffs = diffStats.additions > 0 || diffStats.deletions > 0
+
+  // Classify session error for display
+  const classifiedError = useMemo(() => classifySessionError(sessionError), [sessionError])
+  const hasError = classifiedError !== null
+  const isRetrying = status === 'retry'
 
   // Get agent name from messages to determine color
   const agentName = useMemo(() => getAgentName(messages), [messages])
@@ -307,6 +320,7 @@ export const SessionNode = memo(function SessionNode({
         status,
         mostRecent: isMostRecent && !isSelected,
         stale: isStale && !isSelected && !isHighlighted,
+        hasError: hasError && !isSelected,
       })}
       style={data.isSubagent ? { borderLeftColor: accentColor } : { borderTopColor: accentColor }}
     >
@@ -363,6 +377,27 @@ export const SessionNode = memo(function SessionNode({
               title="Most recently updated session"
             >
               <Zap className="h-3.5 w-3.5" />
+            </span>
+          )}
+          {hasError && (
+            <span
+              className={cn(
+                'flex items-center justify-center rounded p-1',
+                classifiedError.classification === 'critical'
+                  ? 'bg-red-500/20 text-red-400'
+                  : 'bg-orange-500/20 text-orange-400',
+              )}
+              title={classifiedError.message}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </span>
+          )}
+          {isRetrying && !hasError && (
+            <span
+              className="flex items-center justify-center rounded bg-yellow-500/20 p-1 text-yellow-400 animate-pulse"
+              title="Retrying request..."
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
             </span>
           )}
           {hasDiffs && (
