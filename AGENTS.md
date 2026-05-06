@@ -47,7 +47,6 @@ lib/
 ├── opencode/           # OpenCode SDK wrappers
 └── utils/              # Utility functions
 types/                  # TypeScript type definitions
-.agents/sdlc/           # Work items and project planning
 ```
 
 ## OpenCode Integration
