@@ -1,0 +1,25 @@
+name: Documentation correction
+description: Report confusing, stale, or incorrect documentation.
+title: "[Docs]: "
+labels:
+  - docs
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      description: File, section, URL, or command output.
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong or unclear?
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested correction
+    validations:
+      required: true

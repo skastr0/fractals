@@ -6,6 +6,15 @@ A graph-native interface for [OpenCode](https://github.com/anomalyco/opencode). 
 
 OpenCode is powerful. But when you're running parallel sessions with subagents spawning subagents, the terminal becomes a wall of text. Fractals gives you a graph. You see which agents are running, what they're working on, and how they relate to each other. Click a node to inspect it. Open multiple panes to compare sessions. Watch token usage climb in real-time.
 
+## Status
+
+- Maturity: experimental public source
+- Distribution: hosted at [fractals.sh](https://fractals.sh)
+- Package channel: none; this repository is a self-hostable app, not an npm package or CLI binary
+- Maintainer model: solo-maintained
+
+The `private: true` package setting is intentional. It prevents accidental npm publication while keeping the source public for local development, self-hosting, review, and forks.
+
 ## Features
 
 - **Session Graph** — Every session is a node. Subagents branch off naturally. Zoom, pan, and click to explore the tree.
@@ -33,9 +42,16 @@ opencode serve
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — Fractals auto-discovers your OpenCode server.
+Open the local Next.js URL printed by `bun dev`. Fractals auto-discovers your OpenCode server.
 
 **Zero config.** Works with your stock OpenCode server. No forks, no migrations, just connect.
+
+For a local production run:
+
+```bash
+bun run build
+bun run start
+```
 
 ### Prerequisites
 
@@ -59,7 +75,16 @@ bun run dev        # Start dev server
 bun run build      # Production build
 bun run check      # Lint + type check
 bun test           # Run tests
+bun run verify     # Check + test + build
 ```
+
+## CI
+
+GitHub Actions runs `bun run verify` on pushes to `main` and on pull requests.
+
+## Security
+
+Fractals connects to a local OpenCode server and displays session, file, diff, and project metadata. Review what your local OpenCode server exposes before sharing screenshots, recordings, logs, or hosted instances. See [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
 ## Tech Stack
 
